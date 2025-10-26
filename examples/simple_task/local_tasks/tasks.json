@@ -1,0 +1,89 @@
+{
+  "example_task_1": {
+    "name": "example_task_1",
+    "image": "/Users/jodafons/Desktop/codes/novacula/examples/simple_task/python3.10.sif",
+    "command": "python /Users/jodafons/Desktop/codes/novacula/examples/simple_task/app.py --job %IN --output %OUT",
+    "input_data": "input_data_1",
+    "outputs": {
+      "OUT": {
+        "file": "output.json",
+        "data": "example_task_1.output.json"
+      }
+    },
+    "partition": "cpu-large",
+    "secondary_data": {},
+    "binds": {
+      "/mnt/cern_data": "/mnt/cern_data"
+    }
+  },
+  "example_task_2": {
+    "name": "example_task_2",
+    "image": "/Users/jodafons/Desktop/codes/novacula/examples/simple_task/python3.10.sif",
+    "command": "python /Users/jodafons/Desktop/codes/novacula/examples/simple_task/app.py --job %IN --output %OUT",
+    "input_data": "example_task_1.output.json",
+    "outputs": {
+      "OUT": {
+        "file": "output.json",
+        "data": "example_task_2.output.json"
+      }
+    },
+    "partition": "cpu-large",
+    "secondary_data": {},
+    "binds": {
+      "/mnt/cern_data": "/mnt/cern_data"
+    }
+  },
+  "example_task_3": {
+    "name": "example_task_3",
+    "image": "/Users/jodafons/Desktop/codes/novacula/examples/simple_task/python3.10.sif",
+    "command": "python /Users/jodafons/Desktop/codes/novacula/examples/simple_task/app.py --job %IN --output %OUT",
+    "input_data": "input_data_2",
+    "outputs": {
+      "OUT": {
+        "file": "output.json",
+        "data": "example_task_3.output.json"
+      }
+    },
+    "partition": "cpu-large",
+    "secondary_data": {},
+    "binds": {
+      "/mnt/cern_data": "/mnt/cern_data"
+    }
+  },
+  "example_task_4": {
+    "name": "example_task_4",
+    "image": "/Users/jodafons/Desktop/codes/novacula/examples/simple_task/python3.10.sif",
+    "command": "python /Users/jodafons/Desktop/codes/novacula/examples/simple_task/app.py --job %IN --output %OUT",
+    "input_data": "example_task_2.output.json",
+    "outputs": {
+      "OUT": {
+        "file": "output.json",
+        "data": "example_task_4.output.json"
+      }
+    },
+    "partition": "cpu-large",
+    "secondary_data": {
+      "DATA_2": "example_task_3.output.json"
+    },
+    "binds": {
+      "/mnt/cern_data": "/mnt/cern_data"
+    }
+  },
+  "example_task_5": {
+    "name": "example_task_5",
+    "image": "/Users/jodafons/Desktop/codes/novacula/examples/simple_task/python3.10.sif",
+    "command": "python /Users/jodafons/Desktop/codes/novacula/examples/simple_task/app.py --job %IN --output %OUT",
+    "input_data": "example_task_2.output.json",
+    "outputs": {
+      "OUT": {
+        "file": "output.json",
+        "data": "example_task_5.output.json"
+      }
+    },
+    "partition": "cpu-large",
+    "secondary_data": {},
+    "binds": {
+      "/mnt/cern_data": "/mnt/cern_data"
+    }
+  }
+}

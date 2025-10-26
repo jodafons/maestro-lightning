@@ -1,0 +1,12 @@
+BootStrap: docker
+From: python:3.10.14-bullseye
+
+
+%files
+    app.py /
+    requirements.txt /
+
+%post
+    ls -lisah /
+    cd / && pip install -r requirements.txt
+    
