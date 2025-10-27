@@ -11,37 +11,30 @@ from loguru         import logger
 from pprint         import pprint
 from time           import sleep
 from loguru         import logger
-from novacula       import get_argparser_formatter
-from novacula       import setup_logs, Popen, symlink
-from novacula.db    import get_db_service
-from novacula.db    import JobStatus as status
+
+
+from maestro_lightning import get_argparser_formatter
+from maestro_lightning import setup_logs, Popen, symlink
+from maestro_lightning import Job, RUNNING, PENDING, FAILED, COMPLETED 
 
 
          
 def job( args ):
 
-    setup_logs( name = f"JobRunner", level=args.message_level )
+    setup_logs( name = f"job_runner", level=args.message_level )
     workarea = args.output
 
-    with open ( args.input , 'r') as f:
-        job          = json.load(f)
-        job_name     = job['job_name']
-        command      = job['command']
-        job_id       = job['job_id']
-        task_id      = job['task_id']
-        image        = job['image']
-        input_data   = job['input_data']
-        outputs_data = job['outputs']
-        task_binds   = job['binds']
-        task_name    = job['task_name']
-        task_envs    = {}
-
-
-    db_service  = get_db_service(args.db_file)
-    job_service = db_service.job( task_name, job_id )
-    job_service.start()
-    job_service.update_status(status.PENDING)
-
+    logger.info(f"loaded job {job.id} from input file {args.input}.")
+    with open ( args.input , 'r') as f:    
+        job = Job.from_dict( json.load(f) )
+        
+    logger.info(f"job id: {job.id}")
+    logger.info(f"reset job status...")
+    job.reset()
+    job.status = RUNNING
+    
+    command = job.command
+    job_id = job.job_id
 
     logger.info("starting...")
     os.makedirs( workarea, exist_ok=True)
@@ -54,6 +47,7 @@ def job( args ):
     logger.info(f"workarea {workarea}...")
 
 
+    image     = job.image.path
     imagename = image.split('/')[-1]
     logger.info(f"using singularity image with name {imagename}.")
     linkpath  = symlink(image, f"{workarea}/{imagename}")
@@ -68,13 +62,14 @@ def job( args ):
     #    command = command.replace(f"%{key}", linkpath)    
 
     
+    input_data = job.input_file
     filename = input_data.split('/')[-1]
     dataset_name = input_data.split('/')[-2]
     linkpath = symlink( input_data, f"{workarea}/{dataset_name}.{filename}")
     command = command.replace(f"%IN", linkpath)
       
     outputs = []
-      
+    outputs_data = job.outputs
     for key, f in outputs_data.items():
         filename = f['name']
         targetpath = f['target']

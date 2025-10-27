@@ -9,16 +9,16 @@ with open("requirements.txt", "r") as f:
 
 
 setup(
-    name='novacula',
+    name='maestro_lightning',
     version='1.0.0',
     license='GPL-3.0',
-    description='novacula orquestrator',
+    #description='novacula orquestrator',
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=find_packages(),
     author='João Victor da Fonseca Pinto',
     author_email='jodafons@lps.ufrj.br',
-    url='https://github.com/jodafons/novacula',
+    url='https://github.com/jodafons/maestro-lightning',
     keywords=['orchestration'],
     install_requires=requirements,
     classifiers=[

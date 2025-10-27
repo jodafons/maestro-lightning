@@ -2,7 +2,7 @@
 
 import os, json
 from pprint import pprint
-from novacula import Flow, Task, Dataset, Image
+from maestro_lightning import Flow, Task, Dataset, Image
 
 
 basepath = os.getcwd()

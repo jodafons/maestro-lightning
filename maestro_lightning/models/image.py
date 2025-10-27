@@ -57,7 +57,7 @@ class Image:
         symlink(self.path, linkpath)
     
 
-    def to_raw(self) -> Dict:
+    def to_dict(self) -> Dict:
         """
         Convert the image instance to a raw dictionary representation.
 
@@ -71,7 +71,7 @@ class Image:
         }
 
     @classmethod
-    def from_raw(cls, raw: Dict) -> 'Image':
+    def from_dict(cls, raw: Dict) -> 'Image':
         """
         Create an Image instance from a raw dictionary representation.
 

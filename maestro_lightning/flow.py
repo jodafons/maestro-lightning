@@ -6,11 +6,10 @@ __all__ = [
 import os
 import tempfile
 
+from loguru import logger
 from pprint import pprint
 from tabulate import tabulate
-from loguru import logger
-from novacula import get_context, dump, get_hash, setup_logs
-from novacula.db import get_db_service, create_db
+from maestro_lightning import get_context, dump, get_hash, setup_logs
 
 
 
@@ -69,9 +68,6 @@ class Session:
         os.makedirs(self.path + "/tasks", exist_ok=True)
         os.makedirs(self.path + "/datasets", exist_ok=True)
         os.makedirs(self.path + "/images", exist_ok=True)
-        os.makedirs(self.path + "/db", exist_ok=True)
-        logger.info(f"Creating database at {self.path}/db/data.db")
-        create_db( f"{self.path}/db/data.db" )
 
     def run(self, dry_run : bool=False):
         ctx = get_context()
@@ -86,31 +82,32 @@ class Session:
             [dataset.mkdir() for dataset in ctx.datasets.values()]
             [task.mkdir() for task in ctx.tasks.values()]
             # Execute tasks with no dependencies as entry points
-            for task in ctx.tasks.values():
-                if len(task.prev) == 0:
-                    logger.info(f"Preparing task {task.name} for execution.")
-                    command = f"ntask init"
-                    command+= f" --task-file {self.path}/tasks.json"
-                    command+= f" --index {task.task_id}"
-                    command+= f" --db-file {self.path}/db/data.db"
-                    os.system(command)
+            #for task in ctx.tasks.values():
+            #    if len(task.prev) == 0:
+            #        logger.info(f"Preparing task {task.name} for execution.")
+            #        command = f"ntask init"
+            #        command+= f" --task-file {self.path}/tasks.json"
+            #        command+= f" --index {task.task_id}"
+            #        command+= f" --db-file {self.path}/db/data.db"
+            #        os.system(command)
         else:
             # Create a temporary file
-            logger.info("Existing tasks found, verifying integrity before execution.")
-            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                temp_file_path = temp_file.name
-                dump(ctx, temp_file_path)
-                
-            temp_hash     = get_hash(temp_file_path)
-            original_hash = get_hash(f"{self.path}/tasks.json")
-
-            # Compare hashes
-            if original_hash != temp_hash:
-                raise Exception("Tasks have changed, you can not proceed with execution. Please create a new Flow instance or delete the current flow directory or rename it.")
-            else:
-                logger.info("No changes detected in tasks.")
-            logger.info(f"Executing tasks in flow located at {self.path}.")
-            self.print_tasks()
+            pass
+            #logger.info("Existing tasks found, verifying integrity before execution.")
+            #with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            #    temp_file_path = temp_file.name
+            #    dump(ctx, temp_file_path)
+            #    
+            #temp_hash     = get_hash(temp_file_path)
+            #original_hash = get_hash(f"{self.path}/tasks.json")
+#
+            ## Compare hashes
+            #if original_hash != temp_hash:
+            #    raise Exception("Tasks have changed, you can not proceed with execution. Please create a new Flow instance or delete the current flow directory or rename it.")
+            #else:
+            #    logger.info("No changes detected in tasks.")
+            #logger.info(f"Executing tasks in flow located at {self.path}.")
+            #self.print_tasks()
             
         
             

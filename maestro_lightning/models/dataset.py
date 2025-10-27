@@ -51,7 +51,7 @@ class Dataset:
                 raise RuntimeError(f"a dataset with name {name} already exists inside of this group of tasks.")
             ctx.datasets[name] = self
             
-    def to_raw(self) -> Dict:
+    def to_dict(self) -> Dict:
             """
             Convert the dataset instance to a raw dictionary representation.
 
@@ -67,7 +67,7 @@ class Dataset:
             }
         
     @classmethod
-    def from_raw(cls, raw: Dict) -> 'Dataset':
+    def from_dict(cls, raw: Dict) -> 'Dataset':
             """
             Create a Dataset instance from a raw dictionary representation.
 
@@ -77,10 +77,6 @@ class Dataset:
             Returns:
                 Dataset: An instance of the Dataset class initialized with the provided attributes.
             """
-            #ctx = get_context()
-            #from_task = None
-            #if raw['from_task'] != "":
-            #    from_task = ctx.tasks[ raw['from_task'] ]
             return cls(
                 name=raw['name'],
                 path=raw['path'],

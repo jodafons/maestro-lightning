@@ -23,25 +23,18 @@ __all__ = [
 ]
 
 import os, json
-from datetime                import datetime
+
 from typing                  import Union, Dict, List
 from expand_folders          import expand_folders
 from filelock                import FileLock
-from novacula.models         import get_context, Context
-from novacula.models.image   import Image 
-from novacula.models.dataset import Dataset
-from novacula                import sbatch
+from maestro_lightning.models         import get_context, Context, Job
+from maestro_lightning.models.image   import Image 
+from maestro_lightning.models.dataset import Dataset
+from maestro_lightning                import sbatch
+from maestro_lightning.models.job     import Job, Status
 from loguru                  import logger
-from enum                    import Enum
 
 
-class TaskStatus(Enum):
-    CREATED   = "created"
-    ASSIGNED  = "assigned"
-    RUNNING   = "running"
-    COMPLETED = "completed"
-    FAILED    = "failed"
-    
 
 
 class Task:
@@ -139,6 +132,16 @@ class Task:
             self.path = f"{ctx.path}/tasks/{self.name}"
             self.path_db = f"{self.path}/db/task.json"
             
+            self._jobs   = []
+            if not os.path.exists(f"{self.path}/jobs/inputs"):
+                for job_path in expand_folders(f"{self.path}/inputs/job_*.json"):
+                    logger.info(f"Task {self.name}: loading existing job from {job_path}.")
+                    with open( job_path , 'r') as f:
+                        job = Job.from_dict(json.load(f))
+                        self._jobs.append(job)
+                      
+
+
             
     @property
     def next(self) -> List['Task']:
@@ -178,11 +181,11 @@ class Task:
                 basepath (str): The base path where the task directory will be created.
             """
             
-            os.makedirs(self.path + "/works"    , exist_ok=True)
-            os.makedirs(self.path + "/jobs"     , exist_ok=True)
+            os.makedirs(self.path + "/works"       , exist_ok=True)
+            os.makedirs(self.path + "/jobs/inputs" , exist_ok=True)
+            os.makedirs(self.path + "/jobs/status" , exist_ok=True)
             os.makedirs(self.path + "/scripts"  , exist_ok=True)
-            os.makedirs(self.path + "/db"       , exist_ok=True)
-            self._create_db()
+            self._create_status()
 
     
     def output(self, key: str) -> str:
@@ -219,7 +222,7 @@ class Task:
             """
             
             ctx = get_context()
-            self._update_db()   
+            self._update_jobs()   
             script = sbatch( f"{self.path}/scripts/run_task_{self.task_id}.sh", 
                             args = {
                                 "array"     : ",".join( [str(job_id) for job_id in self.get_array_of_jobs_with_status() ]),
@@ -269,74 +272,55 @@ class Task:
 
     @classmethod
     def from_dict( cls, data : Dict) -> 'Task':
-        
-        task = Task(
-            name = data['name'],
-            image = data['image'],
-            command = data['command'],
-            input_data = data['input_data'],
-            outputs = { key : value for key, value in data['outputs'].items() },
-            partition = data['partition'],
-            secondary_data = { key : value for key, value in data['secondary_data'].items() },
-            binds = data['binds'],
+        return cls(
+            name           = data["name"],
+            image          = data["image"],
+            command        = data["command"],
+            input_data     = data["input_data"],
+            outputs        = data["outputs"],
+            partition      = data["partition"],
+            secondary_data = data["secondary_data"],
+            binds          = data["binds"],
         )
+        
+        
+        
+    def _create_status(self):
+        with open( self.path + "status.json", 'w') as f:
+            json.dump( Status("created").to_dict() , f , indent=2)
         
     #
     # database methods
     #
-        
-    def _create_db(self):
-            """
-            Creates a new task in the database if it does not already exist.
-
-            This method checks for the existence of a task with the given name.
-            If the task does not exist, it creates a new Task object, adds it to
-            the session, and commits the transaction.
-
-            Note: The task_id assignment is currently commented out and may need
-            to be implemented based on the application's requirements.
-            """
-            
-            if not os.path.exists(self.path + "/db/task.json"):
-                with open(self.path + "/db/task.json", 'w') as f:
-                    d = {
-                        "status": TaskStatus.ASSIGNED.value,
-                        "files" : [],
-                        }
-                    json.dump( d , f , indent=2)
-            
-
-    def _update_db(self):
+    def _update_jobs(self):
             
             task = json.load( open( self.path + "/db/task.json", 'r') )
             job_id = task.get('files',0)
+            input_files  = [ job.input_file.split('/')[-1] for job in self._jobs ]
         
             for filepath in self.input_data:
                 filename = filepath.split('/')[-1]
-                if not filename in task['files']:
-                    
+                if not filename in input_files:
+                    logger.info(f"Task {self.name}: preparing job {job_id} for input file {filename}.")
                     job = Job(
                         task_path = self.path,
                         job_id = job_id,
-                        status = JobStatus.ASSIGNED.value,
-                        input_data = filepath,
-                        outputs = { key : value for key, value in self.outputs_data.items() },
-                        secondary_data = { key : value for key, value in self.secondary_data.items() },
+                        input_file = filepath,
+                        outputs = self.outputs_data,
+                        secondary_data = self.secondary_data,
                         image = self.image,
                         command = self.command,
                         binds = self.binds,
                     )
-                    job.save()
+                    job.dump()
+                    self._jobs.append( job )
+                    input_files.append( filename )
+                    job_id += 1
+                    
                     
                  
-                    
-                    # increment job id
-                    job_id         += 1
-            
-            # update task file
-            logger.info(f"Task {self.name}: {len(task['files'])} jobs prepared.")               
-            with open(self.path + "/db/task.json", 'w') as f:
-                json.dump( task , f , indent=2)
+    
+          
                 
             
     def get_array_of_jobs_with_status(self, status: JobStatus = JobStatus.ASSIGNED) -> List[int]:

@@ -1,22 +1,64 @@
+__all__ = [
+    "Job",
+    "JobStatus",
+]
 
-    job = Job(
-                        task_path = self.path,
-                        job_id = job_id,
-                        status = JobStatus.ASSIGNED.value,
-                        input_data = filepath,
-                        outputs = { key : value for key, value in self.outputs_data.items() },
-                        secondary_data = { key : value for key, value in self.secondary_data.items() },
-                        image = self.image,
-                        command = self.command,
-                        binds = self.binds,
-                    )
+import os
+import json
 
-class JobStatus(Enum):
-    CREATED   = "created"
-    ASSIGNED  = "assigned"
-    RUNNING   = "running"
-    COMPLETED = "completed"
-    FAILED    = "failed"
+from typing import Dict
+from filelock import FileLock
+from datetime import datetime, timedelta
+from maestro_lightning.models.dataset import Dataset
+from maestro_lightning.models.image import Image
+
+
+
+
+ASSIGNED = "assigned"
+UNKNOWN  = "unknown"
+PENDING  = "pending"
+RUNNING  = "running"
+COMPLETED= "completed"
+FAILED   = "failed"
+FINALIZED= "finalized"
+    
+class Status:
+    def __init__(self, 
+                 status: str, 
+                 start_time : datetime=datetime.now(),
+                 last_time  : datetime=datetime.now()
+    ):
+        self.status = status
+        self.start_time = start_time
+        self.last_time = last_time
+    
+    def to_dict(self) -> Dict:
+        return {
+            "status"     : self.status,
+            "last_time"  : self.last_time.isoformat(),
+            "start_time" : self.start_time.isoformat(),
+        }
+        
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            status = data["status"],
+            start_time = datetime.fromisoformat(data["start_time"]),
+            last_time = datetime.fromisoformat(data["last_time"])
+        )
+        
+    def ping(self):
+        self.time = datetime.now()
+        
+    def is_alive(self, minutes : int=5) -> bool:
+        return datetime.now() - self.last_time < timedelta(minutes=minutes)
+      
+    def reset(self):
+        self.start_time = datetime.now()
+        self.last_time = datetime.now()
+
+
 
 
 
@@ -24,8 +66,7 @@ class Job:
     def __init__(self, 
                  task_path: str,
                  job_id: int,
-                 status: str,
-                 input_data: Dataset,
+                 input_file: str,
                  outputs: dict,
                  secondary_data: dict,
                  image: Image,
@@ -34,47 +75,127 @@ class Job:
         
         self.task_path = task_path
         self.job_id = job_id
-        self.status = status
-        self.input_data = input_data
+        self.input_file = input_file
         self.outputs = outputs
         self.secondary_data = secondary_data
         self.image = image
         self.command = command
         self.binds = binds
         
-    def update_status(self, new_status: str):
-        self.status = new_status
-                
-    def dump(self):
+    def to_dict(self) -> Dict:
+        """
+        Convert the Job instance to a dictionary representation.
+
+        This method serializes the attributes of the Job instance into a 
+        dictionary format, which can be useful for JSON serialization or 
+        other forms of data interchange. The dictionary includes the 
+        following keys:
+
+        - task_path: The path to the task associated with the job.
+        - job_id: The unique identifier for the job.
+        - status: The current status of the job.
+        - input_file: The input file associated with the job.
+        - outputs: A dictionary of output data, where each key is an 
+            identifier and each value is the serialized representation of 
+            the corresponding output.
+        - secondary_data: A dictionary of secondary data, serialized 
+            in the same manner as outputs.
+        - image: The serialized representation of the associated image.
+        - command: The command associated with the job.
+        - binds: The binds associated with the job.
+
+        Returns:
+                Dict: A dictionary representation of the Job instance.
+        """
+        return {
+                "task_path"      : self.task_path,
+                "job_id"         : self.job_id,
+                "status"         : self.status,
+                "input_file"     : self.input_file,
+                "outputs"        : { key : value.to_dict() for key, value in self.outputs.items() },
+                "secondary_data" : { key : value.to_dict() for key, value in self.secondary_data.items() },
+                "image"          : self.image.to_dict(),
+                "command"        : self.command,
+                "binds"          : self.binds,
+        }
         
-                
+    @classmethod
+    def from_dict(cls, data: Dict):
+        
+        return cls(
+            task_path      = data["task_path"],
+            job_id         = data["job_id"],
+            status         = data["status"],
+            input_file     = data["input_file"],
+            outputs        = { key : Dataset.from_dict(value) for key, value in data["outputs"].items() },
+            secondary_data = { key : Dataset.from_dict(value) for key, value in data["secondary_data"].items() },
+            image          = Image.from_dict(data["image"]),
+            command        = data["command"],
+            binds          = data["binds"],
+        )
+             
+    def dump(self):
+            """
+            Dumps the job's data to JSON files.
+            This method creates two JSON files:
+            
+            1. A file containing the job's input data, saved at 
+                'jobs/inputs/job_{job_id}.json'.
+            2. A file containing the job's status, saved at 
+                'jobs/status/job_{job_id}.json'.
+            
+            The job's input data is obtained by calling the `to_dict` method,
+            while the status is represented by an instance of the `Status` class
+            initialized with the `ASSIGNED` status.
+            Note: Ensure that the directories exist before calling this method.
+            """
+            with open( f"{self.task_path}/jobs/inputs/job_{self.job_id}.json", 'w') as f:
+                  json.dump( self.to_dict() , f , indent=2)
+            with open( f"{self.task_path}/jobs/status/job_{self.job_id}.json", 'w') as f:
+                  json.dump(Status(ASSIGNED).to_dict(), f, indent=2)
+    
 
+    @property 
+    def status(self) -> str:
+        if os.path.exists( f"{self.task_path}/jobs/status/job_{self.job_id}.json" ):
+            with FileLock( f"{self.task_path}/jobs/status/job_{self.job_id}.json.lock" ):
+                with open( f"{self.task_path}/jobs/status/job_{self.job_id}.json", 'r') as f:
+                    data = json.load(f)
+                    return Status.from_dict(data).status
+        else:
+            return UNKNOWN
     
-    
-    
-    
-     logger.info(f"Task {self.name}: preparing job {job_id} for input file {filename}.")
-                    task['files'].append( filename )                                        
-                    path = f"{self.path}/jobs/job_{job_id}.json"
-                    with open( path, 'w') as f:
-                        d = {
-                            "input_data"    : filepath,
-                            "outputs"       : { key : {"name":value.name.replace(f"{self.name}.",""), "target":value.path} for key, value in self.outputs_data.items() },
-                            "secondary_data": {},
-                            "image"         : self.image.path,
-                            "job_id"        : job_id,
-                            "task_id"       : self.task_id,
-                            "command"       : self.command,
-                            "binds"         : self.binds,        
-                        }
-                        json.dump(d, f, indent=2)                        
-
-                    logger.info(f"Task {self.name}: creating job database entry for job {job_id}.")
-                    with open( self.path + f"/db/job_{job_id}.json", 'w') as f:
-                        d = {
-                            "status"    : JobStatus.ASSIGNED.value,
-                            "timestamp" : datetime.now(),
-                            "job_id"    : job_id,
-                        }
-                        json.dump( d , f , indent=2)
+    @status.setter
+    def status(self, new_status: str):
+        status = Status(new_status)
+        with FileLock( f"{self.task_path}/jobs/status/job_{self.job_id}.json.lock" ):
+            with open( f"{self.task_path}/jobs/status/job_{self.job_id}.json", 'w') as f:
+                json.dump(status.to_dict(), f, indent=2)
                     
+                   
+    def ping(self):
+        if os.path.exists( f"{self.task_path}/jobs/status/job_{self.job_id}.json" ):
+            with FileLock( f"{self.task_path}/jobs/status/job_{self.job_id}.json.lock" ):
+                with open( f"{self.task_path}/jobs/status/job_{self.job_id}.json", 'r') as f:
+                    status = Status.from_dict(json.load(f))
+                    status.ping()
+                with open( f"{self.task_path}/jobs/status/job_{self.job_id}.json", 'w') as f:
+                    json.dump(status.to_dict(), f, indent=2)
+                    
+    def is_alive(self) -> bool:
+        if os.path.exists( f"{self.task_path}/jobs/status/job_{self.job_id}.json" ):
+            with FileLock( f"{self.task_path}/jobs/status/job_{self.job_id}.json.lock" ):
+                with open( f"{self.task_path}/jobs/status/job_{self.job_id}.json", 'r') as f:
+                    status = Status.from_dict(json.load(f))
+                    return status.is_alive()
+        else:
+            return False
+        
+    def reset(self):
+        if os.path.exists( f"{self.task_path}/jobs/status/job_{self.job_id}.json" ):
+            with FileLock( f"{self.task_path}/jobs/status/job_{self.job_id}.json.lock" ):
+                with open( f"{self.task_path}/jobs/status/job_{self.job_id}.json", 'r') as f:
+                    status = Status.from_dict(json.load(f))
+                    status.reset()
+                with open( f"{self.task_path}/jobs/status/job_{self.job_id}.json", 'w') as f:
+                    json.dump(status.to_dict(), f, indent=2)
