@@ -42,27 +42,6 @@ class TaskStatus(Enum):
     COMPLETED = "completed"
     FAILED    = "failed"
     
-class JobStatus(Enum):
-    CREATED   = "created"
-    ASSIGNED  = "assigned"
-    RUNNING   = "running"
-    COMPLETED = "completed"
-    FAILED    = "failed"
-
-def lock(filepath : str) -> str:
-    return filepath + ".lock"
-
-def update_job_status( filepath : str, status : JobStatus ):
-    with FileLock(lock(filepath)):
-        with open( filepath , 'r') as f:
-            job = json.load(f)
-            job['status'] = status.value
-        with open( filepath , 'w') as f:
-            json.dump( job , f , indent=2)
-            
-def ping_job( filepath : str ):
-    
-
 
 
 class Task:
@@ -158,7 +137,9 @@ class Task:
             self.outputs_data = outputs
             self.secondary_data = secondary_data
             self.path = f"{ctx.path}/tasks/{self.name}"
-              
+            self.path_db = f"{self.path}/db/task.json"
+            
+            
     @property
     def next(self) -> List['Task']:
         return self._next
@@ -257,7 +238,7 @@ class Task:
             return int(job_id)
  
  
-    def to_raw(self) -> Dict:
+    def to_dict(self) -> Dict:
             """
             Converts the current task instance into a raw dictionary representation.
 
@@ -287,7 +268,7 @@ class Task:
             return d
 
     @classmethod
-    def from_raw( cls, data : Dict) -> 'Task':
+    def from_dict( cls, data : Dict) -> 'Task':
         
         task = Task(
             name = data['name'],
@@ -345,7 +326,7 @@ class Task:
                         command = self.command,
                         binds = self.binds,
                     )
-                    job.dump()
+                    job.save()
                     
                  
                     

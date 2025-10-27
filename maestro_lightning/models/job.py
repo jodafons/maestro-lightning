@@ -11,6 +11,15 @@
                         binds = self.binds,
                     )
 
+class JobStatus(Enum):
+    CREATED   = "created"
+    ASSIGNED  = "assigned"
+    RUNNING   = "running"
+    COMPLETED = "completed"
+    FAILED    = "failed"
+
+
+
 class Job:
     def __init__(self, 
                  task_path: str,
