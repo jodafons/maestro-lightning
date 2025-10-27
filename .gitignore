@@ -24,6 +24,8 @@ maestror-env
 maestro-env
 maestro_lightning-env
 .maestro_lightning-env
+*.egg-info 
+.DS_Store
 .venv
 # vscode
 ./.vscode/*

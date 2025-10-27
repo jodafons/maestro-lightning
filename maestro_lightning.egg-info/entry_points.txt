@@ -1,3 +1,0 @@
-[console_scripts]
-njob = novacula.parsers.job:run
-ntask = novacula.parsers.task:run
