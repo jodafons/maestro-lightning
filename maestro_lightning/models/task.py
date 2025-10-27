@@ -31,6 +31,7 @@ from maestro_lightning.models         import get_context, Job, Status, UNKNOWN
 from maestro_lightning.models.image   import Image 
 from maestro_lightning.models.dataset import Dataset
 from maestro_lightning                import sbatch
+from maestro_lightning.exceptions     import *
 
 
 
@@ -80,19 +81,21 @@ class Task:
             ctx = get_context()
 
             if type(input_data) == str:
+                logger.info(f"Task {self.name}: looking for input dataset '{input_data}'.")
                 if input_data not in ctx.datasets:
-                    Exception(f"input dataset {input_data} not found in the group of tasks.")
+                    DatasetNotFound(input_data)
                 input_data = ctx.datasets[input_data]
             
             if type(image) == str:
+                logger.info(f"Task {self.name}: looking for image '{image}'.")
                 if image not in ctx.images:
-                    Exception(f"image {image} not found in the group of tasks.")
+                    raise ImageNotFound(image)
                 image = ctx.images[image]
             
             self.image = image
 
             if self.name in ctx.tasks:
-                raise Exception(f"a task with name {name} already exists inside of this group of tasks.")
+                raise TaskExistsError(self.name)
             
             self.task_id = len(ctx.tasks)
             ctx.tasks[self.name] = self   
@@ -104,6 +107,7 @@ class Task:
             
             for key in outputs.keys():
                 if type(outputs[key]) == str:
+                    logger.info(f"Task {self.name}: creating output dataset '{outputs[key]}'.")
                     name = f"{self.name}.{outputs[key]}"
                     output_data = Dataset(name=name, 
                                            path=f"{ctx.path}/datasets/{name}", from_task=self)
@@ -111,8 +115,9 @@ class Task:
                     
             for key in secondary_data.keys():
                 if type(secondary_data[key]) == str:
+                    logger.info(f"Task {self.name}: looking for secondary dataset '{secondary_data[key]}'.")
                     if secondary_data[key] not in ctx.datasets:
-                        Exception(f"secondary dataset {secondary[key]} not found in the group of tasks.")
+                        raise DatasetNotFound(secondary_data[key])
                     else:
                         secondary_data[key] = ctx.datasets[secondary_data[key]]
 

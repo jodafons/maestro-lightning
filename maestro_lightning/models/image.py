@@ -7,7 +7,7 @@ import os
 from typing import Dict
 from maestro_lightning import symlink
 from maestro_lightning.models import get_context
-
+from maestro_lightning.exceptions import ImageExistsError
 
 
 class Image:
@@ -31,7 +31,7 @@ class Image:
             self.path = path
             ctx = get_context()
             if name in ctx.images:
-                raise RuntimeError(f"an image with name {name} already exists inside of this group of tasks.")
+                raise ImageExistsError(name)
             ctx.images[name] = self
 
     def mkdir(self):

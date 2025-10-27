@@ -8,6 +8,7 @@ from typing import List, Dict, Union
 from expand_folders import expand_folders
 from maestro_lightning import symlink
 from maestro_lightning.models import get_context
+from maestro_lightning.exceptions import DatasetExistsError
 
 class Dataset:
     
@@ -48,7 +49,7 @@ class Dataset:
             self.from_task = from_task
             ctx=get_context()
             if name in ctx.datasets:
-                raise RuntimeError(f"a dataset with name {name} already exists inside of this group of tasks.")
+                raise DatasetExistsError(name)
             ctx.datasets[name] = self
             
     def to_dict(self) -> Dict:
