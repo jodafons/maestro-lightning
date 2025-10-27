@@ -9,10 +9,9 @@ import json
 
 from pprint import pprint
 from typing import Dict, Tuple
-from enum import Enum
 from filelock import FileLock
-from datetime import datetime, timedelta
 from maestro_lightning.models import get_context
+from maestro_lightning.models.status import State, Status
 from maestro_lightning.models.dataset import Dataset
 from maestro_lightning.models.image import Image
 
@@ -23,7 +22,7 @@ class Job:
                  job_id: int,
                  input_file: str,
                  outputs: Dict[str, Tuple[str,Dataset]],
-                 secondary_data: dict,
+                 secondary_data: Dict[str, Dataset],
                  image: Image,
                  command: str,
                  binds: Dict[str, str]={},
