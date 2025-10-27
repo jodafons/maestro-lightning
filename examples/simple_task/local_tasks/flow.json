@@ -1,0 +1,78 @@
+{
+  "datasets": {
+    "input_data_1": {
+      "name": "input_data_1",
+      "path": "/Users/jodafons/Desktop/codes/maestro-lightning/examples/simple_task/input_data_1",
+      "from_task": ""
+    }
+  },
+  "images": {
+    "python": {
+      "name": "python",
+      "path": "/Users/jodafons/Desktop/codes/maestro-lightning/examples/simple_task/python3.10.sif"
+    }
+  },
+  "tasks": {
+    "0": {
+      "task_id": 0,
+      "name": "example_task_1",
+      "image": "python",
+      "command": "python /Users/jodafons/Desktop/codes/maestro-lightning/examples/simple_task/app.py --job %IN --output %OUT",
+      "input_data": "input_data_1",
+      "outputs": {
+        "OUT": "output.json"
+      },
+      "partition": "gpu",
+      "secondary_data": {},
+      "binds": {
+        "/mnt/cern_data": "/mnt/cern_data"
+      },
+      "next": [
+        "example_task_2"
+      ],
+      "prev": []
+    },
+    "1": {
+      "task_id": 1,
+      "name": "example_task_2",
+      "image": "python",
+      "command": "python /Users/jodafons/Desktop/codes/maestro-lightning/examples/simple_task/app.py --job %IN --output %OUT",
+      "input_data": "example_task_1.output.json",
+      "outputs": {
+        "OUT": "output.json"
+      },
+      "partition": "gpu",
+      "secondary_data": {},
+      "binds": {
+        "/mnt/cern_data": "/mnt/cern_data"
+      },
+      "next": [
+        "example_task_3"
+      ],
+      "prev": [
+        "example_task_1"
+      ]
+    },
+    "2": {
+      "task_id": 2,
+      "name": "example_task_3",
+      "image": "python",
+      "command": "python /Users/jodafons/Desktop/codes/maestro-lightning/examples/simple_task/app.py --job %IN --output %OUT",
+      "input_data": "example_task_2.output.json",
+      "outputs": {
+        "OUT": "output.json"
+      },
+      "partition": "gpu",
+      "secondary_data": {},
+      "binds": {
+        "/mnt/cern_data": "/mnt/cern_data"
+      },
+      "next": [],
+      "prev": [
+        "example_task_2"
+      ]
+    }
+  },
+  "path": "/Users/jodafons/Desktop/codes/maestro-lightning/examples/simple_task/local_tasks",
+  "virtualenv": "/Users/jodafons/Desktop/codes/maestro-lightning/maestro_lightning-env"
+}

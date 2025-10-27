@@ -4,12 +4,14 @@ __all__ = [
 ]
 
 import os
+import json
 import tempfile
 
 from loguru import logger
 from pprint import pprint
 from tabulate import tabulate
-from maestro_lightning import get_context, dump, get_hash, setup_logs
+from maestro_lightning.models import Context, Dataset, Image, Task
+from maestro_lightning import get_context, get_hash, setup_logs
 
 
 
@@ -72,12 +74,12 @@ class Session:
     def run(self, dry_run : bool=False):
         ctx = get_context()
         logger.info(f"Running flow at {self.path}")
-        if not os.path.exists(f"{self.path}/tasks.json"):
+        if not os.path.exists(f"{self.path}/flow.json"):
             logger.info("No existing tasks found, initializing new flow.")
             self.mkdir()
             # Save tasks to disk
-            dump( ctx, f"{self.path}/tasks.json" )
-            logger.info(f"Tasks saved to {self.path}/tasks.json")
+            dump( ctx, f"{self.path}/flow.json" )
+            logger.info(f"Tasks saved to {self.path}/flow.json")
             [image.mkdir() for image in ctx.images.values()]
             [dataset.mkdir() for dataset in ctx.datasets.values()]
             [task.mkdir() for task in ctx.tasks.values()]
@@ -92,23 +94,22 @@ class Session:
             #        os.system(command)
         else:
             # Create a temporary file
-            pass
-            #logger.info("Existing tasks found, verifying integrity before execution.")
-            #with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-            #    temp_file_path = temp_file.name
-            #    dump(ctx, temp_file_path)
-            #    
-            #temp_hash     = get_hash(temp_file_path)
-            #original_hash = get_hash(f"{self.path}/tasks.json")
-#
-            ## Compare hashes
-            #if original_hash != temp_hash:
-            #    raise Exception("Tasks have changed, you can not proceed with execution. Please create a new Flow instance or delete the current flow directory or rename it.")
-            #else:
-            #    logger.info("No changes detected in tasks.")
-            #logger.info(f"Executing tasks in flow located at {self.path}.")
+            logger.info("Existing tasks found, verifying integrity before execution.")
+            with tempfile.NamedTemporaryFile(delete=True) as temp_file:
+                temp_file_path = temp_file.name
+                dump(ctx, temp_file_path)
+                temp_hash = get_hash(temp_file_path)
+            original_hash = get_hash(f"{self.path}/flow.json")
+
+            # Compare hashes
+            if original_hash != temp_hash:
+                raise Exception("Tasks have changed, you can not proceed with execution. Please create a new Flow instance or delete the current flow directory or rename it.")
+            else:
+                logger.info("No changes detected in tasks.")
+            logger.info(f"Executing tasks in flow located at {self.path}.")
             #self.print_tasks()
-            
+
+           
         
             
     def print(self):
@@ -129,7 +130,6 @@ class Session:
         if not os.path.exists(f"{self.path}/db/data.db"):
             raise Exception("Database does not exist. Have you run the flow yet?")
         
-        db_service = get_db_service( f"{self.path}/db/data.db" )
         
         rows  = []
         for task in ctx.tasks.values():
@@ -143,3 +143,54 @@ class Session:
         cols.extend(["status"])
         table = tabulate(rows ,headers=cols, tablefmt="psql")
         print(table)
+
+
+           
+#
+# read and write functions
+#
+        
+def dump( ctx : Context, path : str):
+    
+    with open(path, 'w') as f:
+        d = {
+            "datasets":{},
+            "images":{},
+            "tasks":{},
+            "path":ctx.path,
+            "virtualenv": ctx.virtualenv
+        }
+        # step 1: dump all datasets which are not from tasks
+        for dataset in ctx.datasets.values():
+            if not dataset.from_task:
+                d['datasets'][ dataset.name ] = dataset.to_dict()
+        # step 2: dump all images
+        for images in ctx.images.values():
+            d['images'][ images.name ] = images.to_dict()
+        
+        # step 3: dump all tasks
+        for task in ctx.tasks.values():
+            d[ 'tasks' ][ task.task_id ] = task.to_dict()
+        json.dump( d , f , indent=2 )
+
+      
+    
+def load( path : str, ctx : Context):
+    
+    with open( path , 'r') as f:
+        data = json.load(f)
+        ctx.path = data['path']
+        ctx.virtualenv = data['virtualenv']
+        
+        # step 1: load all datasets which are not from tasks
+        for dataset in data['datasets'].values():
+            Dataset.from_dict( dataset )
+        
+        # step 2: load all images
+        for image in data['images'].values():
+            Image.from_dict( image )
+
+        # step 3: load all tasks
+        for task in data['tasks'].values():
+            Task.from_dict( task )
+            

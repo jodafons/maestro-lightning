@@ -6,4 +6,3 @@ nvsmi
 rich_argparse
 tabulate
 expand_folders
-filelock

@@ -18,8 +18,6 @@ including context management, database services, and logging utilities.
 
 __all__ = [
     "Task",
-    "load",
-    "dump",
 ]
 
 import os, json
@@ -27,12 +25,12 @@ import os, json
 from typing                  import Union, Dict, List
 from expand_folders          import expand_folders
 from filelock                import FileLock
-from maestro_lightning.models         import get_context, Context, Job
+from loguru                  import logger
+
+from maestro_lightning.models         import get_context, Job, Status, UNKNOWN
 from maestro_lightning.models.image   import Image 
 from maestro_lightning.models.dataset import Dataset
 from maestro_lightning                import sbatch
-from maestro_lightning.models.job     import Job, Status
-from loguru                  import logger
 
 
 
@@ -130,19 +128,15 @@ class Task:
             self.outputs_data = outputs
             self.secondary_data = secondary_data
             self.path = f"{ctx.path}/tasks/{self.name}"
-            self.path_db = f"{self.path}/db/task.json"
             
-            self._jobs   = []
-            if not os.path.exists(f"{self.path}/jobs/inputs"):
-                for job_path in expand_folders(f"{self.path}/inputs/job_*.json"):
+            self.jobs   = []
+            if os.path.exists(f"{self.path}/jobs/inputs"):
+                for job_path in expand_folders(f"{self.path}/jobs/inputs/*"):
                     logger.info(f"Task {self.name}: loading existing job from {job_path}.")
                     with open( job_path , 'r') as f:
                         job = Job.from_dict(json.load(f))
-                        self._jobs.append(job)
-                      
-
-
-            
+                        self.jobs.append(job)
+                    
     @property
     def next(self) -> List['Task']:
         return self._next
@@ -168,7 +162,7 @@ class Task:
                 self._prev.append( task )
                        
 
-    def _mkdir(self):
+    def mkdir(self):
             """
             Create a directory structure for the task.
 
@@ -186,6 +180,8 @@ class Task:
             os.makedirs(self.path + "/jobs/status" , exist_ok=True)
             os.makedirs(self.path + "/scripts"  , exist_ok=True)
             self._create_status()
+            self._update_jobs()   
+
 
     
     def output(self, key: str) -> str:
@@ -286,18 +282,14 @@ class Task:
         
         
     def _create_status(self):
-        with open( self.path + "status.json", 'w') as f:
+        with open( self.path + "/status.json", 'w') as f:
             json.dump( Status("created").to_dict() , f , indent=2)
         
-    #
-    # database methods
-    #
+        
     def _update_jobs(self):
             
-            task = json.load( open( self.path + "/db/task.json", 'r') )
-            job_id = task.get('files',0)
-            input_files  = [ job.input_file.split('/')[-1] for job in self._jobs ]
-        
+            input_files  = [ job.input_file.split('/')[-1] for job in self.jobs ]
+            job_id = len(input_files)
             for filepath in self.input_data:
                 filename = filepath.split('/')[-1]
                 if not filename in input_files:
@@ -313,73 +305,30 @@ class Task:
                         binds = self.binds,
                     )
                     job.dump()
-                    self._jobs.append( job )
+                    self.jobs.append( job )
                     input_files.append( filename )
                     job_id += 1
                     
                     
-                 
+    def get_array_of_jobs_with_status(self, status: str="assigned") -> List[int]:
+        return [ job.job_id for job in self._jobs if job.status == status ]
+        
+        
+    @property 
+    def status(self) -> str:
+        if os.path.exists( f"{self.path}/status.json" ):
+            with FileLock( f"{self.path}/status.json.lock" ):
+                with open( f"{self.path}/status.json", 'r') as f:
+                    data = json.load(f)
+                    return Status.from_dict(data).status
+        else:
+            return UNKNOWN
     
-          
-                
-            
-    def get_array_of_jobs_with_status(self, status: JobStatus = JobStatus.ASSIGNED) -> List[int]:
-       
-            jobs = []
-            for filepath in expand_folders(self.path + "/db/job_*.json"):
-                with FileLock(filepath + ".lock"):
-                    with open( filepath , 'r') as f:
-                        job = json.load(f)
-                        if job['status'] == status.value:
-                            jobs.append( job['job_id'] )
-            return jobs
-        
-#
-# read and write functions
-#
-        
-def dump( ctx : Context, path : str):
-    
-    with open(path, 'w') as f:
-        d = {
-            "datasets":{},
-            "images":{},
-            "tasks":{},
-            "path":ctx.path,
-            "virtualenv": ctx.virtualenv
-        }
-        # step 1: dump all datasets which are not from tasks
-        for dataset in ctx.datasets.values():
-            if not dataset.from_task:
-                d['datasets'][ dataset.name ] = dataset.to_raw()
-        # step 2: dump all images
-        for images in ctx.images.values():
-            d['images'][ images.name ] = images.to_raw()
-        
-        # step 3: dump all tasks
-        for task in ctx.tasks.values():
-            d[ 'tasks' ][ task.task_id ] = task.to_raw()
-        json.dump( d , f , indent=2 )
-
-      
-    
-def load( path : str, ctx : Context):
-    
-    with open( path , 'r') as f:
-        data = json.load(f)
-        ctx.path = data['path']
-        ctx.virtualenv = data['virtualenv']
-        
-        # step 1: load all datasets which are not from tasks
-        for dataset in data['datasets'].values():
-            Dataset.from_raw( dataset )
-        
-        # step 2: load all images
-        for image in data['images'].values():
-            Image.from_raw( image )
-
-        # step 3: load all tasks
-        for task_id, raw in data['tasks'].items():
-            Task.from_raw( raw )
-            
+    @status.setter
+    def status(self, new_status: str):
+        status = Status(new_status)
+        with FileLock( f"{self.path}/status.json.lock" ):
+            with open( f"{self.path}/status.json", 'w') as f:
+                json.dump(status.to_dict(), f, indent=2)
+ 
     

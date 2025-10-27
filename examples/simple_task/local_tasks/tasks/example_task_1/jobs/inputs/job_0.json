@@ -1,0 +1,22 @@
+{
+  "task_path": "/Users/jodafons/Desktop/codes/maestro-lightning/examples/simple_task/local_tasks/tasks/example_task_1",
+  "job_id": 0,
+  "status": "unknown",
+  "input_file": "/Users/jodafons/Desktop/codes/maestro-lightning/examples/simple_task/input_data_1/0.json",
+  "outputs": {
+    "OUT": {
+      "name": "example_task_1.output.json",
+      "path": "/Users/jodafons/Desktop/codes/maestro-lightning/examples/simple_task/local_tasks/datasets/example_task_1.output.json",
+      "from_task": "example_task_1"
+    }
+  },
+  "secondary_data": {},
+  "image": {
+    "name": "python",
+    "path": "/Users/jodafons/Desktop/codes/maestro-lightning/examples/simple_task/python3.10.sif"
+  },
+  "command": "python /Users/jodafons/Desktop/codes/maestro-lightning/examples/simple_task/app.py --job %IN --output %OUT",
+  "binds": {
+    "/mnt/cern_data": "/mnt/cern_data"
+  }
+}

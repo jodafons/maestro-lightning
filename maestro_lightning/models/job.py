@@ -1,6 +1,13 @@
 __all__ = [
     "Job",
-    "JobStatus",
+    "Status",
+    "ASSIGNED",
+    "UNKNOWN",
+    "PENDING",
+    "RUNNING",
+    "COMPLETED",
+    "FAILED",
+    "FINALIZED",
 ]
 
 import os
@@ -9,6 +16,7 @@ import json
 from typing import Dict
 from filelock import FileLock
 from datetime import datetime, timedelta
+from maestro_lightning.models import get_context
 from maestro_lightning.models.dataset import Dataset
 from maestro_lightning.models.image import Image
 
@@ -122,14 +130,36 @@ class Job:
     @classmethod
     def from_dict(cls, data: Dict):
         
+        ctx = get_context()
+        outputs = data["outputs"]
+        for key in outputs.keys():
+            if outputs[key]["name"] not in ctx.datasets:
+                dataset = Dataset.from_dict( outputs[key] )
+                outputs[key]=dataset
+            else:
+                outputs[key]=ctx.datasets[ outputs[key]["name"] ]
+                
+        secondary_data = data["secondary_data"]
+        for key in secondary_data.keys():
+            if secondary_data[key]["name"] not in ctx.datasets:
+                dataset = Dataset.from_dict( secondary_data[key] )
+                secondary_data[key]=dataset
+            else:
+                secondary_data[key]=ctx.datasets[ secondary_data[key]["name"] ]
+        
+        image = data["image"]
+        if image["name"] not in ctx.images:
+            image = Image.from_dict( data["image"] )
+        else:
+            image = ctx.images[ image["name"] ]
+        
         return cls(
             task_path      = data["task_path"],
             job_id         = data["job_id"],
-            status         = data["status"],
             input_file     = data["input_file"],
-            outputs        = { key : Dataset.from_dict(value) for key, value in data["outputs"].items() },
-            secondary_data = { key : Dataset.from_dict(value) for key, value in data["secondary_data"].items() },
-            image          = Image.from_dict(data["image"]),
+            outputs        = outputs,
+            secondary_data = secondary_data,
+            image          = image,
             command        = data["command"],
             binds          = data["binds"],
         )

@@ -5,8 +5,8 @@ __all__ = [
 import os
 
 from typing import Dict
-from novacula import symlink
-from novacula.models import get_context
+from maestro_lightning import symlink
+from maestro_lightning.models import get_context
 
 
 
