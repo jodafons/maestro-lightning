@@ -68,18 +68,10 @@ def symlink(target, linkpath):
         else:
             raise e
       
-from . import sbatch 
-__all__.extend( sbatch.__all__ )
-from .sbatch import *
-         
-from . import popen 
-__all__.extend( popen.__all__ )
-from .popen import *
-
-from . import db
-__all__.extend( db.__all__ )
-from .db import *
-
+from . import backends 
+__all__.extend( backends.__all__ )
+from .backends import *
+ 
 from . import models
 __all__.extend( models.__all__ )
 from .models import *

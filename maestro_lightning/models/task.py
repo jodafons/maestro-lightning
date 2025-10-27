@@ -23,31 +23,46 @@ __all__ = [
 ]
 
 import os, json
-
+from datetime                import datetime
 from typing                  import Union, Dict, List
+from expand_folders          import expand_folders
+from filelock                import FileLock
 from novacula.models         import get_context, Context
 from novacula.models.image   import Image 
 from novacula.models.dataset import Dataset
-from novacula.db             import get_db_service, models
 from novacula                import sbatch
 from loguru                  import logger
+from enum                    import Enum
 
-# ... rest of the Task class code ...
-__all__ = [
-    "Task",
-    "load",
-    "dump",
-]
 
-import os, json
+class TaskStatus(Enum):
+    CREATED   = "created"
+    ASSIGNED  = "assigned"
+    RUNNING   = "running"
+    COMPLETED = "completed"
+    FAILED    = "failed"
+    
+class JobStatus(Enum):
+    CREATED   = "created"
+    ASSIGNED  = "assigned"
+    RUNNING   = "running"
+    COMPLETED = "completed"
+    FAILED    = "failed"
 
-from typing                  import Union, Dict, List
-from novacula.models         import get_context, Context
-from novacula.models.image   import Image 
-from novacula.models.dataset import Dataset
-from novacula.db             import get_db_service, models
-from novacula                import sbatch
-from loguru                  import logger
+def lock(filepath : str) -> str:
+    return filepath + ".lock"
+
+def update_job_status( filepath : str, status : JobStatus ):
+    with FileLock(lock(filepath)):
+        with open( filepath , 'r') as f:
+            job = json.load(f)
+            job['status'] = status.value
+        with open( filepath , 'w') as f:
+            json.dump( job , f , indent=2)
+            
+def ping_job( filepath : str ):
+    
+
 
 
 class Task:
@@ -169,7 +184,7 @@ class Task:
                 self._prev.append( task )
                        
 
-    def mkdir(self):
+    def _mkdir(self):
             """
             Create a directory structure for the task.
 
@@ -185,6 +200,7 @@ class Task:
             os.makedirs(self.path + "/works"    , exist_ok=True)
             os.makedirs(self.path + "/jobs"     , exist_ok=True)
             os.makedirs(self.path + "/scripts"  , exist_ok=True)
+            os.makedirs(self.path + "/db"       , exist_ok=True)
             self._create_db()
 
     
@@ -222,7 +238,6 @@ class Task:
             """
             
             ctx = get_context()
-            db_service = get_db_service()
             self._update_db()   
             script = sbatch( f"{self.path}/scripts/run_task_{self.task_id}.sh", 
                             args = {
@@ -301,106 +316,57 @@ class Task:
             to be implemented based on the application's requirements.
             """
             
-            db_service = get_db_service()
-            if not db_service.task(self.name).check_existence():
-                with db_service() as session:
-                    task_db = models.Task()
-                    task_db.task_id = self.task_id
-                    task_db.name = self.name
-                    session.add(task_db)
-                    session.commit()
+            if not os.path.exists(self.path + "/db/task.json"):
+                with open(self.path + "/db/task.json", 'w') as f:
+                    d = {
+                        "status": TaskStatus.ASSIGNED.value,
+                        "files" : [],
+                        }
+                    json.dump( d , f , indent=2)
+            
 
     def _update_db(self):
-            """
-            Updates the database with new job entries associated with the current task.
-
-            This method retrieves the task from the database using its name, checks for existing jobs,
-            and creates new job entries based on the input data provided. Each job is saved as a JSON file
-            in a specified directory, and the job information is stored in the database.
-
-            The following steps are performed:
-            1. Retrieve the database session.
-            2. Query the task by name.
-            3. Iterate over the input data to create job entries.
-            4. Check if a job with the same filename already exists.
-            5. If not, create a new job entry and save it to the database and as a JSON file.
-            6. Commit the changes to the database.
-
-            Note: This method assumes that the `self.input_data`, `self.outputs_data`, `self.image`, 
-            `self.path`, `self.command`, and `self.binds` attributes are properly initialized before calling 
-            this method.
-            """
             
-            db_service = get_db_service()
-     
-            with db_service() as session:
-                try:
-                 
-                    task_db = session.query(models.Task).filter_by(name=self.name).one()    
-                    job_id = len(task_db.jobs)
-                        
-                    for filepath in self.input_data:
-                        filename = filepath.split('/')[-1]
-                        if session.query(models.Job).filter_by(task_name=self.name, filename=filename).count() == 0:
-                                                
-                            path = f"{self.path}/jobs/job_{job_id}.json"
-                            with open( path, 'w') as f:
-                                d = {
-                                    "input_data"    : filepath,
-                                    "outputs"       : { key : {"name":value.name.replace(f"{self.name}.",""), "target":value.path} for key, value in self.outputs_data.items() },
-                                    "secondary_data": {},
-                                    "image"         : self.image.path,
-                                    "job_id"        : job_id,
-                                    "task_id"       : self.task_id,
-                                    "command"       : self.command,
-                                    "binds"         : self.binds,
-                                    "job_name"      : "",
-                                    "task_name"     : self.name,
-                                }
-                                json.dump(d, f, indent=2)
-
-                            job_db          = models.Job()
-                            job_db.job_id   = job_id 
-                            job_db.task_name= self.name
-                            job_db.filename = filename
-                            job_db.status   = models.JobStatus.ASSIGNED
-                            task_db        += job_db 
-                            job_id         += 1
-                            
-                    logger.info(f"creating task with name {self.name}")
-                    session.commit()
-                finally:
-                    session.close()
-            
-    def get_array_of_jobs_with_status(self, status: models.JobStatus = models.JobStatus.ASSIGNED) -> List[int]:
-            """
-            Retrieve an array of job IDs with a specified status.
-
-            This method queries the database for jobs associated with the current task name
-            that match the given status. It returns a list of job IDs.
-
-            Args:
-                status (models.JobStatus): The status of the jobs to retrieve. Defaults to
-                models.JobStatus.ASSIGNED.
-
-            Returns:
-                List[int]: A list of job IDs that match the specified status.
-
-            Note:
-                Ensure that the database service is properly configured and accessible.
-            """
-            
-            db_service = get_db_service()
-            jobs = []
-            with db_service() as session:
-                try:
-                    task_db = session.query(models.Task).filter_by(name=self.name).one()
-                    for job_db in task_db.jobs:
-                        if job_db.status == status:
-                            jobs.append(job_db.job_id)
+            task = json.load( open( self.path + "/db/task.json", 'r') )
+            job_id = task.get('files',0)
+        
+            for filepath in self.input_data:
+                filename = filepath.split('/')[-1]
+                if not filename in task['files']:
                     
-                finally:
-                    session.close()
+                    job = Job(
+                        task_path = self.path,
+                        job_id = job_id,
+                        status = JobStatus.ASSIGNED.value,
+                        input_data = filepath,
+                        outputs = { key : value for key, value in self.outputs_data.items() },
+                        secondary_data = { key : value for key, value in self.secondary_data.items() },
+                        image = self.image,
+                        command = self.command,
+                        binds = self.binds,
+                    )
+                    job.dump()
+                    
+                 
+                    
+                    # increment job id
+                    job_id         += 1
+            
+            # update task file
+            logger.info(f"Task {self.name}: {len(task['files'])} jobs prepared.")               
+            with open(self.path + "/db/task.json", 'w') as f:
+                json.dump( task , f , indent=2)
+                
+            
+    def get_array_of_jobs_with_status(self, status: JobStatus = JobStatus.ASSIGNED) -> List[int]:
+       
+            jobs = []
+            for filepath in expand_folders(self.path + "/db/job_*.json"):
+                with FileLock(filepath + ".lock"):
+                    with open( filepath , 'r') as f:
+                        job = json.load(f)
+                        if job['status'] == status.value:
+                            jobs.append( job['job_id'] )
             return jobs
         
 #
