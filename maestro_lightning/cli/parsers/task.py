@@ -1,23 +1,3 @@
-"""
-This module provides functionality for managing tasks in a job scheduling system.
-
-It includes the following main functions:
-
-1. `init(args)`: Initializes a task by loading it from a specified task file, updating its status to running, and submitting it for execution. It also creates a closing script that will be executed after the task completes.
-
-2. `close(args)`: Finalizes a task by checking its status and updating the database accordingly. If the task fails, it cancels all dependent tasks. If successful, it starts any tasks that depend on the completed task.
-
-3. `args_parser()`: Creates and returns an argument parser for command-line arguments related to task management.
-
-4. `build_argparser()`: Builds the main argument parser with subparsers for the 'init' and 'close' modes.
-
-5. `run_parser(args)`: Executes the appropriate function (`init` or `close`) based on the parsed command-line arguments.
-
-6. `run()`: The entry point of the module that sets up the argument parser and processes command-line input.
-
-Usage:
-    This module can be executed from the command line to manage tasks by providing the appropriate arguments.
-"""
 __all__ = []
 
 import sys
