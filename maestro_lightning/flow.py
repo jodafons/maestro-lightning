@@ -92,6 +92,8 @@ class Session:
             #        command+= f" --index {task.task_id}"
             #        command+= f" --db-file {self.path}/db/data.db"
             #        os.system(command)
+            
+          
         else:
             # Create a temporary file
             logger.info("Existing tasks found, verifying integrity before execution.")
@@ -108,7 +110,9 @@ class Session:
                 logger.info("No changes detected in tasks.")
             logger.info(f"Executing tasks in flow located at {self.path}.")
             #self.print_tasks()
-
+        
+        print("🚨 Please do not remove or move the flow directory or any dataset paths!\n"
+              "🚨 Any changes may break the program and lead to unexpected behavior.")
            
         
             
