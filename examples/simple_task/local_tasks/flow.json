@@ -27,6 +27,7 @@
       "binds": {
         "/mnt/cern_data": "/mnt/cern_data"
       },
+      "envs": {},
       "next": [
         "example_task_2"
       ],
@@ -46,6 +47,7 @@
       "binds": {
         "/mnt/cern_data": "/mnt/cern_data"
       },
+      "envs": {},
       "next": [
         "example_task_3"
       ],
@@ -67,6 +69,7 @@
       "binds": {
         "/mnt/cern_data": "/mnt/cern_data"
       },
+      "envs": {},
       "next": [],
       "prev": [
         "example_task_2"

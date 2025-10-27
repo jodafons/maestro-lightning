@@ -292,7 +292,7 @@ class Task:
         
     def _create_status(self):
         with open( self.path + "/status.json", 'w') as f:
-            json.dump( Status("created").to_dict() , f , indent=2)
+            json.dump( Status(State.ASSIGNED).to_dict() , f , indent=2)
         
         
     def _update_jobs(self):
@@ -303,11 +303,12 @@ class Task:
                 filename = filepath.split('/')[-1]
                 if not filename in input_files:
                     logger.info(f"Task {self.name}: preparing job {job_id} for input file {filename}.")
+                    outputs = {key: (value.name.replace(f"{self.name}.",""),value) for key, value in self.outputs_data.items()}
                     job = Job(
                         task_path = self.path,
                         job_id = job_id,
                         input_file = filepath,
-                        outputs = self.outputs_data,
+                        outputs = outputs,
                         secondary_data = self.secondary_data,
                         image = self.image,
                         command = self.command,

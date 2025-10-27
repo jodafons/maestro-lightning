@@ -7,7 +7,8 @@ __all__ = [
 import os
 import json
 
-from typing import Dict
+from pprint import pprint
+from typing import Dict, Tuple
 from enum import Enum
 from filelock import FileLock
 from datetime import datetime, timedelta
@@ -29,7 +30,7 @@ class State(Enum):
     
 class Status:
     def __init__(self, 
-                 status: str, 
+                 status: State, 
                  start_time : datetime=datetime.now(),
                  last_time  : datetime=datetime.now()
     ):
@@ -39,7 +40,7 @@ class Status:
     
     def to_dict(self) -> Dict:
         return {
-            "status"     : self.status,
+            "status"     : self.status.value,
             "last_time"  : self.last_time.isoformat(),
             "start_time" : self.start_time.isoformat(),
         }
@@ -47,7 +48,7 @@ class Status:
     @classmethod
     def from_dict(cls, data: Dict):
         return cls(
-            status = data["status"],
+            status = State(data["status"]),
             start_time = datetime.fromisoformat(data["start_time"]),
             last_time = datetime.fromisoformat(data["last_time"])
         )
@@ -71,7 +72,7 @@ class Job:
                  task_path: str,
                  job_id: int,
                  input_file: str,
-                 outputs: dict,
+                 outputs: Dict[str, Tuple[str,Dataset]],
                  secondary_data: dict,
                  image: Image,
                  command: str,
@@ -114,12 +115,12 @@ class Job:
         Returns:
                 Dict: A dictionary representation of the Job instance.
         """
+
         return {
                 "task_path"      : self.task_path,
                 "job_id"         : self.job_id,
-                "status"         : self.status,
                 "input_file"     : self.input_file,
-                "outputs"        : { key : value.to_dict() for key, value in self.outputs.items() },
+                "outputs"        : { key : (name, value.to_dict()) for key, (name, value) in self.outputs.items() },
                 "secondary_data" : { key : value.to_dict() for key, value in self.secondary_data.items() },
                 "image"          : self.image.to_dict(),
                 "command"        : self.command,
@@ -132,12 +133,12 @@ class Job:
         
         ctx = get_context()
         outputs = data["outputs"]
-        for key in outputs.keys():
-            if outputs[key]["name"] not in ctx.datasets:
-                dataset = Dataset.from_dict( outputs[key] )
-                outputs[key]=dataset
+        for key, (_, dataset) in outputs.keys():
+            if dataset["name"] not in ctx.datasets:
+                dataset = Dataset.from_dict( dataset )
+                outputs[key][1]=dataset
             else:
-                outputs[key]=ctx.datasets[ outputs[key]["name"] ]
+                outputs[key][1]=ctx.datasets[ outputs[key][1]["name"] ]
                 
         secondary_data = data["secondary_data"]
         for key in secondary_data.keys():
@@ -181,9 +182,10 @@ class Job:
             Note: Ensure that the directories exist before calling this method.
             """
             with open( f"{self.task_path}/jobs/inputs/job_{self.job_id}.json", 'w') as f:
-                  json.dump( self.to_dict() , f , indent=2)
+                    pprint(self.to_dict())
+                    json.dump( self.to_dict() , f , indent=2)
             with open( f"{self.task_path}/jobs/status/job_{self.job_id}.json", 'w') as f:
-                  json.dump(Status(State.ASSIGNED).to_dict(), f, indent=2)
+                    json.dump(Status(State.ASSIGNED).to_dict(), f, indent=2)
     
 
     @property 

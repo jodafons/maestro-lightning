@@ -48,28 +48,28 @@ def run_job( args ):
     logger.info(f"using singularity image with name {imagename}.")
     linkpath  = symlink(image, f"{workarea}/{imagename}")
     image     = linkpath
-
-
-    #for key, name in task.secondary_data.items():
-    #    logger.info(f"creating secondary data link for {name} inside of the job workarea.")
-    #    dataset_id = db_service.fetch_dataset_from_name( name )
-    #    basepath = io_service.dataset(dataset_id).basepath
-    #    linkpath = symlink( f"{basepath}" , f"{workarea}/{name}")
-    #    command = command.replace(f"%{key}", linkpath)    
+    logger.info(f"singularity image linked to workarea at {linkpath}.")
+    
+    logger.info("creating secondary data links inside of the job workarea...")
+    for key, dataset in job.secondary_data.items():
+        logger.info(f"creating secondary data link for {dataset.name} inside of the job workarea.")
+        linkpath = symlink( dataset.path , f"{workarea}/{dataset.name}")
+        command = command.replace(f"%{key}", linkpath)
 
     
+    logger.info("creating input data link inside of the job workarea...")
     input_data = job.input_file
     filename = input_data.split('/')[-1]
     dataset_name = input_data.split('/')[-2]
     linkpath = symlink( input_data, f"{workarea}/{dataset_name}.{filename}")
     command = command.replace(f"%IN", linkpath)
       
+    logger.info("preparing output data locations...")
     outputs = []
     outputs_data = job.outputs
-    for key, f in outputs_data.items():
-        filename = f['name']
-        targetpath = f['target']
-        dataset_name = targetpath.split('/')[-1]
+    for key, (filename, dataset) in outputs_data.items():
+        logger.info(f"preparing output file {filename} for dataset {dataset.name}...")
+        targetpath = dataset.path
         filename, extension = os.path.splitext( filename )
         filename = f"{filename}.{job_id}{extension}"
         command = command.replace(f"%{key}", filename)
@@ -82,7 +82,6 @@ def run_job( args ):
         f.write(f"cd {workarea}\n")
         f.write(command)
             
-    ok=True
     try:
         logger.info("preparing singularity command...")
         binds   = f''
@@ -102,7 +101,6 @@ def run_job( args ):
         envs["SLURM_MEM_PER_NODE"]   = os.environ.get("SLURM_MEM_PER_NODE", '2048')
         envs.update(job.envs)
         pprint(envs)
-        
         logger.info("🚀 run job!")   
         logger.info(f"command: {command}")
         
@@ -123,9 +121,7 @@ def run_job( args ):
         job.status=State.FAILED
         sys.exit(0)
 
-    if not ok:
-        logger.error("job execution failed.")
-        sys.exit(0)
+   
     
     logger.info("job execution completed.")
     if proc.status()!="completed":

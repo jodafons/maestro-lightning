@@ -96,7 +96,6 @@ def run_next(args):
     
 
 def task_parser():
-
     parser = argparse.ArgumentParser(description = '', add_help = False)
     parser.add_argument('-i','--index', action='store', dest='index', required = True,
                         help = "The task index", type=int)   
