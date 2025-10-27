@@ -1,19 +1,14 @@
 __all__ = [
     "Job",
     "Status",
-    "ASSIGNED",
-    "UNKNOWN",
-    "PENDING",
-    "RUNNING",
-    "COMPLETED",
-    "FAILED",
-    "FINALIZED",
+    "State",
 ]
 
 import os
 import json
 
 from typing import Dict
+from enum import Enum
 from filelock import FileLock
 from datetime import datetime, timedelta
 from maestro_lightning.models import get_context
@@ -22,14 +17,15 @@ from maestro_lightning.models.image import Image
 
 
 
-
-ASSIGNED = "assigned"
-UNKNOWN  = "unknown"
-PENDING  = "pending"
-RUNNING  = "running"
-COMPLETED= "completed"
-FAILED   = "failed"
-FINALIZED= "finalized"
+class State(Enum):
+    ASSIGNED = "assigned"
+    UNKNOWN  = "unknown"
+    PENDING  = "pending"
+    RUNNING  = "running"
+    COMPLETED= "completed"
+    FAILED   = "failed"
+    FINALIZED= "finalized"
+    
     
 class Status:
     def __init__(self, 
@@ -79,7 +75,9 @@ class Job:
                  secondary_data: dict,
                  image: Image,
                  command: str,
-                 binds: dict):
+                 binds: Dict[str, str]={},
+                 envs: Dict[str, str]={}
+                 ):
         
         self.task_path = task_path
         self.job_id = job_id
@@ -89,6 +87,7 @@ class Job:
         self.image = image
         self.command = command
         self.binds = binds
+        self.envs = envs
         
     def to_dict(self) -> Dict:
         """
@@ -125,6 +124,7 @@ class Job:
                 "image"          : self.image.to_dict(),
                 "command"        : self.command,
                 "binds"          : self.binds,
+                "envs"           : self.envs,
         }
         
     @classmethod
@@ -162,6 +162,7 @@ class Job:
             image          = image,
             command        = data["command"],
             binds          = data["binds"],
+            envs           = data["envs"],
         )
              
     def dump(self):
@@ -182,7 +183,7 @@ class Job:
             with open( f"{self.task_path}/jobs/inputs/job_{self.job_id}.json", 'w') as f:
                   json.dump( self.to_dict() , f , indent=2)
             with open( f"{self.task_path}/jobs/status/job_{self.job_id}.json", 'w') as f:
-                  json.dump(Status(ASSIGNED).to_dict(), f, indent=2)
+                  json.dump(Status(State.ASSIGNED).to_dict(), f, indent=2)
     
 
     @property 
@@ -193,7 +194,7 @@ class Job:
                     data = json.load(f)
                     return Status.from_dict(data).status
         else:
-            return UNKNOWN
+            return State.UNKNOWN
     
     @status.setter
     def status(self, new_status: str):

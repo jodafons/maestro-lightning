@@ -32,8 +32,9 @@ setup(
     ],
     entry_points = {
         'console_scripts' : [
-            'njob  = novacula.parsers.job:run',
-            'ntask = novacula.parsers.task:run',
+            #'njob  = novacula.parsers.job:run',
+            #'ntask = novacula.parsers.task:run',
+            'maestro = maestro_lightning.cli.main:run',
         ]
     }
 )

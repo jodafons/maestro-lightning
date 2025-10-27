@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 
 
 import json
@@ -7,19 +5,17 @@ import argparse
 import traceback
 import shutil
 import os, sys
-from loguru         import logger
-from pprint         import pprint
-from time           import sleep
-from loguru         import logger
 
-
-from maestro_lightning import get_argparser_formatter
+from time import sleep
+from loguru import logger
+from pprint import pprint
+from loguru import logger
 from maestro_lightning import setup_logs, Popen, symlink
-from maestro_lightning import Job, RUNNING, PENDING, FAILED, COMPLETED 
+from maestro_lightning import Job, State
 
 
          
-def job( args ):
+def run_job( args ):
 
     setup_logs( name = f"job_runner", level=args.message_level )
     workarea = args.output
@@ -31,7 +27,7 @@ def job( args ):
     logger.info(f"job id: {job.id}")
     logger.info(f"reset job status...")
     job.reset()
-    job.status = RUNNING
+    job.status = State.PENDING
     
     command = job.command
     job_id = job.job_id
@@ -90,14 +86,13 @@ def job( args ):
     try:
         logger.info("preparing singularity command...")
         binds   = f''
-        for key,value in task_binds.items():
+        for key,value in job.binds.items():
             binds+= f' --bind {key}:{value}'
         command = f"singularity exec --nv --writable-tmpfs {binds} {image} bash {entrypoint}"
         command = command.replace('  ',' ') 
 
         envs = {}
         envs["JOB_ID"]               = f"{job_id}"
-        #envs["TASK_ID"]              = f"{args.job_id}"
         envs["JOB_WORKAREA"]         = workarea 
         envs["TF_CPP_MIN_LOG_LEVEL"] = "3"
         envs["CUDA_VISIBLE_ORDER"]   = "PCI_BUS_ID"
@@ -105,8 +100,7 @@ def job( args ):
         envs["OMP_NUM_THREADS"]      = os.environ.get("SLURM_CPUS_PER_TASK", '4')
         envs["SLURM_CPUS_PER_TASK"]  = envs["OMP_NUM_THREADS"]
         envs["SLURM_MEM_PER_NODE"]   = os.environ.get("SLURM_MEM_PER_NODE", '2048')
-        envs.update(task_envs)
-        
+        envs.update(job.envs)
         pprint(envs)
         
         logger.info("🚀 run job!")   
@@ -118,21 +112,15 @@ def job( args ):
         proc.run_async()
         
         logger.info("updating job status to running...")
-        job_service.update_status(status.RUNNING)
+        job.status = State.RUNNING
         proc.join()
         while proc.is_alive():
             sleep(10)
-            job_service.ping()
-            db_status = job_service.fetch_status()
-            if db_status == status.KILL:
-                proc.kill()
-                proc.join()                
-                job_service.update_status(status.KILLED)
-                ok=False
+            job.ping()
     except:
         traceback.print_exc()
         logger.error("error during the job execution.")
-        job_service.update_status(status.FAILED)
+        job.status=State.FAILED
         sys.exit(0)
 
     if not ok:
@@ -142,7 +130,7 @@ def job( args ):
     logger.info("job execution completed.")
     if proc.status()!="completed":
         logger.error(f"something happing during the job execution. exiting with status {proc.status()}")
-        job_service.update_status(status.FAILED)
+        job.status=State.FAILED
         sys.exit(0)
     
     
@@ -154,12 +142,12 @@ def job( args ):
             symlink( targetpath, filename )
         else:
             logger.error(f"output file {filename} not found in workarea {workarea}.")
-            job_service.update_status(status.FAILED)
+            job.status=State.FAILED
             sys.exit(0)
             
     logger.info("job completed successfully.")
-    job_service.ping()
-    job_service.update_status(status.COMPLETED)
+    job.ping()
+    job.status=State.COMPLETED
     sys.exit(0)
 
 
@@ -168,25 +156,17 @@ def job( args ):
 #
 # args 
 #
-def run():
-    formatter_class = get_argparser_formatter()
+def job_parser():
+    parser = argparse.ArgumentParser(description = '', add_help = False)
 
-    parser    = argparse.ArgumentParser(formatter_class=formatter_class)
     parser.add_argument('-i','--input', action='store', dest='input', required = True,
                         help = "The job input file")
     parser.add_argument('-o','--output', action='store', dest='output', required = False, default='circuit.json',
                         help = "The job output")
-    parser.add_argument('-d','--db-file', action='store', dest='db_file', required = True,
-                        help = "The database file")
     parser.add_argument('-m','--message-level', action='store', dest='message_level', required = False, default='INFO',
                         help = "The job message level (DEBUG, INFO, WARNING, ERROR)")
 
-    if len(sys.argv)==1:
-        parser.print_help()
-        sys.exit(1)
-
-    args = parser.parse_args()
-    job( args )
+    return [parser]
     
     
 

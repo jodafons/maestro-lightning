@@ -27,7 +27,7 @@ from expand_folders          import expand_folders
 from filelock                import FileLock
 from loguru                  import logger
 
-from maestro_lightning.models         import get_context, Job, Status, UNKNOWN
+from maestro_lightning.models         import get_context, Job, Status, State
 from maestro_lightning.models.image   import Image 
 from maestro_lightning.models.dataset import Dataset
 from maestro_lightning                import sbatch
@@ -47,6 +47,7 @@ class Task:
                      partition      : str,
                      secondary_data : Dict[str, Union[str, Dataset]] = {},
                      binds          : Dict[str, str] = {},
+                     envs           : Dict[str, str] = {},
             ):
             """
             Initializes a new task with the given parameters.
@@ -68,6 +69,7 @@ class Task:
             
             self.name = name
             self.command = command
+            self.envs = envs
 
             if '%IN' not in command:
                 raise ValueError("command must contain the placeholder %IN for input data.")
@@ -266,6 +268,7 @@ class Task:
                 "partition"         : self.partition,
                 "secondary_data"    : { key : value.name for key, value in self.secondary_data.items() },
                 "binds"             : self.binds,
+                "envs"              : self.envs,
                 "next"              : [ task.name for task in self._next ],
                 "prev"              : [ task.name for task in self._prev ],
             }
@@ -282,6 +285,7 @@ class Task:
             partition      = data["partition"],
             secondary_data = data["secondary_data"],
             binds          = data["binds"],
+            envs           = data["envs"],
         )
         
         
@@ -308,6 +312,7 @@ class Task:
                         image = self.image,
                         command = self.command,
                         binds = self.binds,
+                        envs = self.envs,
                     )
                     job.dump()
                     self.jobs.append( job )
@@ -327,7 +332,7 @@ class Task:
                     data = json.load(f)
                     return Status.from_dict(data).status
         else:
-            return UNKNOWN
+            return State.UNKNOWN
     
     @status.setter
     def status(self, new_status: str):

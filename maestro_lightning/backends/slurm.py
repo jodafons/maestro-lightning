@@ -2,6 +2,7 @@ __all__ = [
     "sbatch"
 ]
 
+import os
 import subprocess
 import shlex
 
@@ -71,7 +72,8 @@ slurm_opts = {
 class sbatch:
     def __init__(self, 
                  path : str,
-                 opts : Dict[str, Any] = {}
+                 opts : Dict[str, Any] = {},
+                 virtualenv : str = os.environ.get("VIRTUAL_ENV", None),
             ):
             """
             Initializes a Slurm batch script with specified options.
@@ -96,6 +98,9 @@ class sbatch:
             for key, value in self._opts.items():
                 logger.info(f"Adding SLURM option: {key} with value: {value}")
                 self.lines.append( f"#SBATCH {value}" )
+                
+            if virtualenv:
+                self.lines.append( f"source {virtualenv}/bin/activate" )
 
 
     def __add__(self, line : str):
