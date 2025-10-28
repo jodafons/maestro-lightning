@@ -13,7 +13,6 @@ import json
 import tempfile
 
 from loguru import logger
-from pprint import pprint
 from tabulate import tabulate
 from maestro_lightning.models import Context, Dataset, Image, Task
 from maestro_lightning import get_context, get_hash, setup_logs
@@ -150,14 +149,11 @@ def dump( ctx : Context, path : str):
                 d['datasets'][ dataset.name ] = dataset.to_dict()
         # step 2: dump all images
         for images in ctx.images.values():
-            d['images'][ images.name ] = images.to_dict()
-        
+            d['images'][ images.name ] = images.to_dict()  
         # step 3: dump all tasks
         for task in ctx.tasks.values():
             d[ 'tasks' ][ task.task_id ] = task.to_dict()
         json.dump( d , f , indent=2 )
-
-      
     
 def load( path : str, ctx : Context):
     
@@ -165,19 +161,15 @@ def load( path : str, ctx : Context):
         data = json.load(f)
         ctx.path = data['path']
         ctx.virtualenv = data['virtualenv']
-        
         # step 1: load all datasets which are not from tasks
         for dataset in data['datasets'].values():
             Dataset.from_dict( dataset )
-        
         # step 2: load all images
         for image in data['images'].values():
             Image.from_dict( image )
-
         # step 3: load all tasks
         for task in data['tasks'].values():
             Task.from_dict( task )
-   
    
 def print_datasets( ctx : Context): 
     logger.info("Current datasets in the flow:")       
@@ -199,7 +191,6 @@ def print_images( ctx : Context):
     cols = ['image', 'path']
     table = tabulate(rows ,headers=cols, tablefmt="psql")
     print(table)   
-        
         
 def print_tasks(ctx : Context):
     logger.info("Current tasks in the flow:")
