@@ -6,7 +6,7 @@ import argparse
 from maestro_lightning import get_argparser_formatter
 from .parsers.job_runner import job_parser, run_job
 from .parsers.task_runner import task_parser, run_init, run_next
-from .parsers.task import list_parser, run_list
+from .parsers.task import list_parser, run_list, create_parser, run_create
 
 def build_argparser():
 
@@ -27,7 +27,7 @@ def build_argparser():
     
     task_parent = argparse.ArgumentParser(formatter_class=formatter_class, add_help=False, )
     option = task_parent.add_subparsers(dest='option')
-    #option.add_parser("create"   , parents = create_parser()    ,help='',formatter_class=formatter_class)
+    option.add_parser("create"   , parents = create_parser()    ,help='',formatter_class=formatter_class)
     #option.add_parser("retry"    , parents = retry_parser()    ,help='',formatter_class=formatter_class)
     option.add_parser("list"   , parents = list_parser()    ,help='',formatter_class=formatter_class)
     mode.add_parser( "task", parents=[task_parent], help="",formatter_class=formatter_class)
@@ -45,7 +45,8 @@ def run_parser(args):
     elif args.mode == "task":
         if args.option == "list":
             run_list(args)
-       
+        elif args.option == "create":
+            run_create(args)
 
 def run():
 
