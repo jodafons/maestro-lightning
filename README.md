@@ -11,3 +11,6 @@ Maestro Lightning is a repository to manage workloads and jobs in SLURM using a 
 ## Installation 📦
 To install Maestro Lightning, run:
 
+## 🐍 Example Usage
+
+To create and run a simple workflow using Maestro Lightning, follow the example below:

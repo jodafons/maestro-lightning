@@ -124,11 +124,7 @@ class Session:
         print_images( get_context() )
         print_datasets( get_context() )
         print_tasks( get_context() )
-      
- 
-    
-
-           
+              
 #
 # read and write functions
 #

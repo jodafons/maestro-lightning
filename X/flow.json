@@ -1,0 +1,30 @@
+{
+  "datasets": {
+    "input_dataset": {
+      "name": "input_dataset",
+      "path": "examples/simple_task/input_data_1",
+      "from_task": ""
+    }
+  },
+  "images": {},
+  "tasks": {
+    "0": {
+      "task_id": 0,
+      "name": "test",
+      "image": null,
+      "command": "python3 app.py -i %IN -o %OUT",
+      "input_data": "input_dataset",
+      "outputs": {
+        "OUT": "output.json"
+      },
+      "partition": "gpu",
+      "secondary_data": {},
+      "binds": {},
+      "envs": {},
+      "next": [],
+      "prev": []
+    }
+  },
+  "path": "X",
+  "virtualenv": "/Users/jodafons/Desktop/codes/maestro-lightning/maestro_lightning-env"
+}

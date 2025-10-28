@@ -1,0 +1,20 @@
+{
+  "task_path": "X/tasks/test",
+  "job_id": 2,
+  "input_file": "/Users/jodafons/Desktop/codes/maestro-lightning/examples/simple_task/input_data_1/2.json",
+  "outputs": {
+    "OUT": [
+      "output.json",
+      {
+        "name": "test.output.json",
+        "path": "X/datasets/test.output.json",
+        "from_task": "test"
+      }
+    ]
+  },
+  "secondary_data": {},
+  "image": null,
+  "command": "python3 app.py -i %IN -o %OUT",
+  "binds": {},
+  "envs": {}
+}
