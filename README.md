@@ -1,10 +1,13 @@
-# Maestro Lightning
+# Maestro Lightning 🚀
 
-Welcome to the **Maestro Lightning** project! This repository is designed to help you manage and orchestrate your slurm jobs. 
+Maestro Lightning is a repository to manage workloads and jobs in SLURM using a Pythonic approach. 
 
-## 🚀 Features
-- User-friendly interface
+## Features ✨
+- Create tasks 🛠️
+- Connect tasks in sequence 🔗
+- Add datasets 📊
+- Link images 🖼️
 
-## 📦 Installation
-To get started, clone the repository and install the dependencies:
+## Installation 📦
+To install Maestro Lightning, run:
 
