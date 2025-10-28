@@ -1,6 +1,11 @@
 __all__ = [
     "Flow",
     "Session",
+    "dump",
+    "load",
+    "print_datasets",
+    "print_images",
+    "print_tasks",
 ]
 
 import os
@@ -114,40 +119,15 @@ class Session:
         print("🚨 Please do not remove or move the flow directory or any dataset paths!\n"
               "🚨 Any changes may break the program and lead to unexpected behavior.")
            
-        
+        self.print()
             
     def print(self):
-        self.print_images()
-        self.print_tasks()
-        self.print_datasets()
-                
-    def print_datasets(self):
-        ctx = get_context()
-        pprint({ name : dataset.to_raw() for name, dataset in ctx.datasets.items() })
-        
-    def print_images(self):
-        ctx = get_context()
-        pprint({ name : image.to_raw() for name, image in ctx.images.items() })
-        
-    def print_tasks(self):
-        ctx = get_context()
-        if not os.path.exists(f"{self.path}/db/data.db"):
-            raise Exception("Database does not exist. Have you run the flow yet?")
-        
-        
-        rows  = []
-        for task in ctx.tasks.values():
-            row = [task.name]
-            info = db_service.task(task.name).fetch_summary()
-            row.extend( [value for value in info['summary'].values()])
-            row.extend([info['status']])
-            rows.append(row)
-        cols = ['taskname']
-        cols.extend([name for name in info['summary'].keys()])
-        cols.extend(["status"])
-        table = tabulate(rows ,headers=cols, tablefmt="psql")
-        print(table)
-
+        print_images( get_context() )
+        print_datasets( get_context() )
+        print_tasks( get_context() )
+      
+ 
+    
 
            
 #
@@ -197,4 +177,43 @@ def load( path : str, ctx : Context):
         # step 3: load all tasks
         for task in data['tasks'].values():
             Task.from_dict( task )
-            
+   
+   
+def print_datasets( ctx : Context): 
+    logger.info("Current datasets in the flow:")       
+    rows  = []
+    for dataset in ctx.datasets.values():
+        row = [dataset.name, len(dataset)]
+        rows.append(row)
+    cols = ['dataset', 'num_files']
+    table = tabulate(rows ,headers=cols, tablefmt="psql")
+    print(table)   
+        
+def print_images( ctx : Context):
+    logger.info("Current images in the flow:")
+    ctx = get_context()
+    rows  = []
+    for image in ctx.images.values():
+        row = [image.name, image.path]
+        rows.append(row)
+    cols = ['image', 'path']
+    table = tabulate(rows ,headers=cols, tablefmt="psql")
+    print(table)   
+        
+        
+def print_tasks(ctx : Context):
+    logger.info("Current tasks in the flow:")
+    rows  = []
+    for task in ctx.tasks.values():
+        row = [task.name]
+        count = task.count()
+        row.extend( [value for value in count.values()])
+        row.extend([task.status.value])
+        rows.append(row)
+    cols = ['taskname']
+    cols.extend([name for name in count.keys()])
+    cols.extend(["status"])
+    table = tabulate(rows ,headers=cols, tablefmt="psql")
+    print(table)
+    
+         

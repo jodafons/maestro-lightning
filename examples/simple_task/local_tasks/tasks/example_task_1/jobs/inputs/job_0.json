@@ -13,11 +13,8 @@
     ]
   },
   "secondary_data": {},
-  "image": {
-    "name": "python",
-    "path": "/Users/jodafons/Desktop/codes/maestro-lightning/examples/simple_task/python3.10.sif"
-  },
-  "command": "python /Users/jodafons/Desktop/codes/maestro-lightning/examples/simple_task/app.py --job %IN --output %OUT",
+  "image": null,
+  "command": "python3 /Users/jodafons/Desktop/codes/maestro-lightning/examples/simple_task/app.py --job %IN --output %OUT",
   "binds": {
     "/mnt/cern_data": "/mnt/cern_data"
   },

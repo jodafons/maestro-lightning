@@ -79,3 +79,7 @@ from .models import *
 from . import flow
 __all__.extend( flow.__all__ )
 from .flow import *
+
+from . import cli 
+__all__.extend( cli.__all__ )
+from .cli import *

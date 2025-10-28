@@ -27,7 +27,7 @@ from expand_folders          import expand_folders
 from filelock                import FileLock
 from loguru                  import logger
 
-from maestro_lightning.models         import get_context, Job, Status, State
+from maestro_lightning.models         import get_context, Job, Status, State, job_status
 from maestro_lightning.models.image   import Image 
 from maestro_lightning.models.dataset import Dataset
 from maestro_lightning                import sbatch
@@ -40,11 +40,11 @@ class Task:
     
     def __init__(self,
                      name           : str,
-                     image          : Union[str, Image],
                      command        : str,
                      input_data     : Union[str, Dataset],
                      outputs        : Dict[str, str],
                      partition      : str,
+                     image          : Union[str, Image]=None,
                      secondary_data : Dict[str, Union[str, Dataset]] = {},
                      binds          : Dict[str, str] = {},
                      envs           : Dict[str, str] = {},
@@ -88,7 +88,7 @@ class Task:
                     DatasetNotFound(input_data)
                 input_data = ctx.datasets[input_data]
             
-            if type(image) == str:
+            if image and (type(image) == str):
                 logger.info(f"Task {self.name}: looking for image '{image}'.")
                 if image not in ctx.images:
                     raise ImageNotFound(image)
@@ -261,7 +261,7 @@ class Task:
             d = {
                 "task_id"           : self.task_id,
                 "name"              : self.name,
-                "image"             : self.image.name,
+                "image"             : self.image.name if self.image else self.image,
                 "command"           : self.command,
                 "input_data"        : self.input_data.name,
                 "outputs"           : { key : value.name.replace(self.name+'.',"") for key, value in self.outputs_data.items() },
@@ -288,12 +288,9 @@ class Task:
             envs           = data["envs"],
         )
         
-        
-        
     def _create_status(self):
         with open( self.path + "/status.json", 'w') as f:
             json.dump( Status(State.ASSIGNED).to_dict() , f , indent=2)
-        
         
     def _update_jobs(self):
             
@@ -321,12 +318,12 @@ class Task:
                     job_id += 1
                     
                     
-    def get_array_of_jobs_with_status(self, status: str="assigned") -> List[int]:
+    def get_array_of_jobs_with_status(self, status: State=State.ASSIGNED) -> List[int]:
         return [ job.job_id for job in self._jobs if job.status == status ]
         
         
     @property 
-    def status(self) -> str:
+    def status(self) -> State:
         if os.path.exists( f"{self.path}/status.json" ):
             with FileLock( f"{self.path}/status.json.lock" ):
                 with open( f"{self.path}/status.json", 'r') as f:
@@ -336,10 +333,27 @@ class Task:
             return State.UNKNOWN
     
     @status.setter
-    def status(self, new_status: str):
-        status = Status(new_status)
+    def status(self, new_status: State):
         with FileLock( f"{self.path}/status.json.lock" ):
+            with open( f"{self.path}/status.json", 'r') as f:
+                data = json.load(f)
+                status = Status.from_dict(data)
+            status.status=new_status
             with open( f"{self.path}/status.json", 'w') as f:
-                json.dump(status.to_dict(), f, indent=2)
+                json.dump( status.to_dict() , f , indent=2)
  
-    
+    def count(self) -> Dict[str, int]:
+            """
+            Counts the number of jobs in each status.
+
+            This method iterates through the jobs associated with the current instance
+            and counts how many jobs are in each possible status defined in `job_status`.
+            
+            Returns:
+                Dict[str, int]: A dictionary where the keys are job statuses and the values
+                are the counts of jobs in each status.
+            """   
+            status_count = { state : 0 for state in job_status }
+            for job in self.jobs:
+                status_count[job.status.value] += 1
+            return status_count

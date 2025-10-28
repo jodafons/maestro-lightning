@@ -8,7 +8,6 @@ import numpy as np
 
 from time   import sleep
 from pprint import pprint
-from loguru import logger
 
 
 
@@ -40,7 +39,7 @@ def run():
     sleep(b)
     o = {'a':a, 'b':b, 'c':a+b}
 
-    logger.info(f"saving into {args.output}...")
+    print(f"saving into {args.output}...")
     with open(args.output , 'w') as f:
         json.dump(o, f)
 

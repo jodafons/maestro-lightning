@@ -18,26 +18,50 @@ from maestro_lightning.models.image import Image
 
 class Job:
     def __init__(self, 
-                 task_path: str,
-                 job_id: int,
-                 input_file: str,
-                 outputs: Dict[str, Tuple[str,Dataset]],
-                 secondary_data: Dict[str, Dataset],
-                 image: Image,
-                 command: str,
-                 binds: Dict[str, str]={},
-                 envs: Dict[str, str]={}
-                 ):
-        
-        self.task_path = task_path
-        self.job_id = job_id
-        self.input_file = input_file
-        self.outputs = outputs
-        self.secondary_data = secondary_data
-        self.image = image
-        self.command = command
-        self.binds = binds
-        self.envs = envs
+                     task_path: str,
+                     job_id: int,
+                     input_file: str,
+                     outputs: Dict[str, Tuple[str,Dataset]],
+                     secondary_data: Dict[str, Dataset],
+                     image: Image,
+                     command: str,
+                     binds: Dict[str, str]={},
+                     envs: Dict[str, str]={}
+                     ):
+            """
+            Initializes a Job instance.
+
+            Parameters:
+            ----------
+            task_path : str
+                The path to the task associated with the job.
+            job_id : int
+                The unique identifier for the job.
+            input_file : str
+                The path to the input file for the job.
+            outputs : Dict[str, Tuple[str, Dataset]]
+                A dictionary mapping output names to their corresponding file paths and datasets.
+            secondary_data : Dict[str, Dataset]
+                A dictionary containing secondary datasets associated with the job.
+            image : Image
+                The image to be used for the job execution.
+            command : str
+                The command to be executed for the job.
+            binds : Dict[str, str], optional
+                A dictionary of bind mounts for the job (default is an empty dictionary).
+            envs : Dict[str, str], optional
+                A dictionary of environment variables for the job (default is an empty dictionary).
+            """
+            
+            self.task_path = task_path
+            self.job_id = job_id
+            self.input_file = input_file
+            self.outputs = outputs
+            self.secondary_data = secondary_data
+            self.image = image
+            self.command = command
+            self.binds = binds
+            self.envs = envs
         
     def to_dict(self) -> Dict:
         """
@@ -71,7 +95,7 @@ class Job:
                 "input_file"     : self.input_file,
                 "outputs"        : { key : (name, value.to_dict()) for key, (name, value) in self.outputs.items() },
                 "secondary_data" : { key : value.to_dict() for key, value in self.secondary_data.items() },
-                "image"          : self.image.to_dict(),
+                "image"          : self.image.to_dict() if self.image else self.image,
                 "command"        : self.command,
                 "binds"          : self.binds,
                 "envs"           : self.envs,
@@ -82,7 +106,7 @@ class Job:
         
         ctx = get_context()
         outputs = data["outputs"]
-        for key, (_, dataset) in outputs.keys():
+        for key, (_, dataset) in outputs.items():
             if dataset["name"] not in ctx.datasets:
                 dataset = Dataset.from_dict( dataset )
                 outputs[key][1]=dataset
@@ -98,10 +122,11 @@ class Job:
                 secondary_data[key]=ctx.datasets[ secondary_data[key]["name"] ]
         
         image = data["image"]
-        if image["name"] not in ctx.images:
-            image = Image.from_dict( data["image"] )
-        else:
-            image = ctx.images[ image["name"] ]
+        if image:
+            if image["name"] not in ctx.images:
+                image = Image.from_dict( data["image"] )
+            else:
+                image = ctx.images[ image["name"] ]
         
         return cls(
             task_path      = data["task_path"],
@@ -138,7 +163,7 @@ class Job:
     
 
     @property 
-    def status(self) -> str:
+    def status(self) -> State:
         if os.path.exists( f"{self.task_path}/jobs/status/job_{self.job_id}.json" ):
             with FileLock( f"{self.task_path}/jobs/status/job_{self.job_id}.json.lock" ):
                 with open( f"{self.task_path}/jobs/status/job_{self.job_id}.json", 'r') as f:
@@ -148,12 +173,16 @@ class Job:
             return State.UNKNOWN
     
     @status.setter
-    def status(self, new_status: str):
+    def status(self, new_status: State):
         status = Status(new_status)
         with FileLock( f"{self.task_path}/jobs/status/job_{self.job_id}.json.lock" ):
+            with open( f"{self.task_path}/jobs/status/job_{self.job_id}.json", 'r') as f:
+                data = json.load(f)
+                status = Status.from_dict(data)
+            status.status=new_status
             with open( f"{self.task_path}/jobs/status/job_{self.job_id}.json", 'w') as f:
-                json.dump(status.to_dict(), f, indent=2)
-                    
+                json.dump( status.to_dict() , f , indent=2)
+     
                    
     def ping(self):
         if os.path.exists( f"{self.task_path}/jobs/status/job_{self.job_id}.json" ):

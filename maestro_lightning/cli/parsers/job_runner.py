@@ -1,4 +1,4 @@
-
+__all__ = []
 
 import json
 import argparse
@@ -20,11 +20,11 @@ def run_job( args ):
     setup_logs( name = f"job_runner", level=args.message_level )
     workarea = args.output
 
-    logger.info(f"loaded job {job.id} from input file {args.input}.")
+    logger.info(f"loaded job from input file {args.input}.")
     with open ( args.input , 'r') as f:    
         job = Job.from_dict( json.load(f) )
         
-    logger.info(f"job id: {job.id}")
+    logger.info(f"job id: {job.job_id}")
     logger.info(f"reset job status...")
     job.reset()
     job.status = State.PENDING
@@ -42,13 +42,14 @@ def run_job( args ):
     logger.info(f"starting env builder for job {job_id}...")
     logger.info(f"workarea {workarea}...")
 
-
-    image     = job.image.path
-    imagename = image.split('/')[-1]
-    logger.info(f"using singularity image with name {imagename}.")
-    linkpath  = symlink(image, f"{workarea}/{imagename}")
-    image     = linkpath
-    logger.info(f"singularity image linked to workarea at {linkpath}.")
+    if job.image:
+        logger.info("preparing singularity image...")
+        image     = job.image.path
+        imagename = image.split('/')[-1]
+        logger.info(f"using singularity image with name {imagename}.")
+        linkpath  = symlink(image, f"{workarea}/{imagename}")
+        image     = linkpath
+        logger.info(f"singularity image linked to workarea at {linkpath}.")
     
     logger.info("creating secondary data links inside of the job workarea...")
     for key, dataset in job.secondary_data.items():
@@ -83,11 +84,15 @@ def run_job( args ):
         f.write(command)
             
     try:
-        logger.info("preparing singularity command...")
-        binds   = f''
-        for key,value in job.binds.items():
-            binds+= f' --bind {key}:{value}'
-        command = f"singularity exec --nv --writable-tmpfs {binds} {image} bash {entrypoint}"
+        logger.info(f"entrypoint script created at {entrypoint}.")
+        if job.image:
+            logger.info("preparing singularity command...")
+            binds   = f''
+            for key,value in job.binds.items():
+                binds+= f' --bind {key}:{value}'
+            command = f"singularity exec --nv --writable-tmpfs {binds} {image} bash {entrypoint}"
+        else:
+            command = f"bash {entrypoint}"
         command = command.replace('  ',' ') 
 
         envs = {}
@@ -111,7 +116,6 @@ def run_job( args ):
         
         logger.info("updating job status to running...")
         job.status = State.RUNNING
-        proc.join()
         while proc.is_alive():
             sleep(10)
             job.ping()

@@ -1,4 +1,4 @@
-__all__ = ["State", "Status"]
+__all__ = ["State", "Status", "job_status"]
 
 from enum import Enum
 from typing import Dict
@@ -14,6 +14,13 @@ class State(Enum):
     FAILED   = "failed"
     FINALIZED= "finalized"
     
+
+job_status = [State.ASSIGNED.value,
+              State.PENDING.value,
+              State.RUNNING.value, 
+              State.COMPLETED.value, 
+              State.FAILED.value,
+              State.FINALIZED.value]   
     
 class Status:
     def __init__(self, 
