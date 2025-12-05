@@ -39,7 +39,7 @@ def run_init(args):
     
     # create the closing script
     logger.info(f"Creating closing script for task {task.name}.")
-    script = sbatch( f"{task.path}/scripts/close_task_{task.task_id}.sh", args = slurm_ops , virtualenv=ctx.virtualenv )    
+    script = sbatch( f"{task.path}/scripts/close_task_{task.task_id}.sh", opts=slurm_ops , virtualenv=ctx.virtualenv )    
     script += f"maestro run next --task-file {ctx.path}/tasks.json --index {task.task_id}"
     logger.info(f"Submitting closing script for task {task.name}.")
     script.submit()

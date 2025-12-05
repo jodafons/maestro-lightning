@@ -8,17 +8,11 @@ from maestro_lightning import Flow, Task, Dataset, Image
 basepath = os.getcwd()
 input_path = f"{basepath}/input_data_1"
 os.makedirs(input_path, exist_ok=True)
-for i in range(2):
+for i in range(20):
     with open(f"{input_path}/{i}.json",'w') as f:
         d={'a':i*10,'b':i*2}
         json.dump(d,f)
 
-input_path = f"{basepath}/input_data_2"
-os.makedirs(input_path, exist_ok=True)
-for i in range(2):
-    with open(f"{input_path}/{i}.json",'w') as f:
-        d={'a':i*10,'b':i*2}
-        json.dump(d,f)
 
 with Flow(name="local_provider", path=f"{basepath}/local_tasks") as session:
 
@@ -31,7 +25,7 @@ with Flow(name="local_provider", path=f"{basepath}/local_tasks") as session:
     binds = {"/mnt/cern_data" : "/mnt/cern_data"}
 
     task_1 = Task(name="example_task_1",
-                  #image=image,
+                  image=image,
                   command=command,
                   input_data=input_dataset_1,
                   outputs={'OUT':'output.json'},

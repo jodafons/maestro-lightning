@@ -88,14 +88,11 @@ class Session:
             [dataset.mkdir() for dataset in ctx.datasets.values()]
             [task.mkdir() for task in ctx.tasks.values()]
             # Execute tasks with no dependencies as entry points
-            #for task in ctx.tasks.values():
-            #    if len(task.prev) == 0:
-            #        logger.info(f"Preparing task {task.name} for execution.")
-            #        command = f"ntask init"
-            #        command+= f" --task-file {self.path}/tasks.json"
-            #        command+= f" --index {task.task_id}"
-            #        command+= f" --db-file {self.path}/db/data.db"
-            #        os.system(command)
+            for task in ctx.tasks.values():
+                if len(task.prev) == 0:
+                    logger.info(f"Preparing task {task.name} for execution.")
+                    command = f"maestro run -t {self.path}/flow.json -i {task.task_id}"
+                    os.system(command)
             
           
         else:

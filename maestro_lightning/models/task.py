@@ -227,15 +227,15 @@ class Task:
             ctx = get_context()
             self._update_jobs()   
             script = sbatch( f"{self.path}/scripts/run_task_{self.task_id}.sh", 
-                            args = {
-                                "array"     : ",".join( [str(job_id) for job_id in self.get_array_of_jobs_with_status() ]),
-                                "output"    : f"{self.path}/works/job_%a/output.out",
-                                "error"     : f"{self.path}/works/job_%a/output.err",
-                                "partition" : self.partition,
-                                "job-name"  : f"run-{self.task_id}",
+                            {
+                                "ARRAY"         : ",".join( [str(job_id) for job_id in self.get_array_of_jobs_with_status() ]),
+                                "OUTPUT_FILE"   : f"{self.path}/works/job_%a/output.out",
+                                "ERROR_FILE"    : f"{self.path}/works/job_%a/output.err",
+                                "PARTITION"     : self.partition,
+                                "JOB_NAME"      : f"run-{self.task_id}",
                             })
             script += f"source {ctx.virtualenv}/bin/activate"
-            command = f"njob "
+            command = f"maestro run job"
             command+= f" -i {self.path}/jobs/job_$SLURM_ARRAY_TASK_ID.json"
             command+= f" -o {self.path}/works/job_$SLURM_ARRAY_TASK_ID"
             command+= f" -d {ctx.path}/db/data.db"
@@ -319,7 +319,7 @@ class Task:
                     
                     
     def get_array_of_jobs_with_status(self, status: State=State.ASSIGNED) -> List[int]:
-        return [ job.job_id for job in self._jobs if job.status == status ]
+        return [ job.job_id for job in self.jobs if job.status == status ]
         
         
     @property 

@@ -91,11 +91,11 @@ class sbatch:
                     raise ValueError(f"Invalid SLURM option: {key}")
                 has_value, _ = slurm_opts[key]
                 if has_value:
-                    self._opts[key] = slurm_opts[key][1] + str(value)
+                    opts[key] = slurm_opts[key][1] + str(value)
                 else:
-                    self._opts[key] = slurm_opts[key][1]
+                    opts[key] = slurm_opts[key][1]
                           
-            for key, value in self._opts.items():
+            for key, value in opts.items():
                 logger.info(f"Adding SLURM option: {key} with value: {value}")
                 self.lines.append( f"#SBATCH {value}" )
                 
